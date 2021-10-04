@@ -17,7 +17,11 @@ const {
   retrieveUserDetails,
   trackLinks,
   verifyUser,
-  creatorConnectJoin
+  creatorConnectJoin,
+  getTwoFactorAuth,
+  confirm2FA,
+  turnOn2FA,
+  turnOff2FA
 } = require('../controllers/userController');
 const { requireAuth, optionalAuth } = require('../controllers/authController');
 
@@ -40,7 +44,12 @@ const avatarLimiter = rateLimit({
 
 userRouter.get('/suggested/:max?', requireAuth, retrieveSuggestedUsers);
 userRouter.post('/track', trackLinks);
-userRouter.post('/joinCreatorConnect',requireAuth, creatorConnectJoin );
+userRouter.post('/joinCreatorConnect', requireAuth, creatorConnectJoin );
+userRouter.get('/2fa/join', requireAuth, getTwoFactorAuth );
+userRouter.get('/2fa/set', requireAuth, turnOn2FA );
+userRouter.get('/2fa/unset', requireAuth, turnOff2FA );
+userRouter.post('/2fa/check', requireAuth, confirm2FA);
+
 //internal use only
 userRouter.get('/internal/meta/:username', retrieveUserDetails);
 userRouter.get('/internal/verify/:username', requireAuth, verifyUser);
@@ -49,8 +58,7 @@ userRouter.get('/:username', optionalAuth, retrieveUser);
 userRouter.get('/:username/posts/:offset', retrievePosts);
 userRouter.get('/:userId/:offset/following', requireAuth, retrieveFollowing);
 userRouter.get('/:userId/:offset/followers', requireAuth, retrieveFollowers);
-userRouter.get('/:username/:offset/search',searchLimiter, searchUsers);
-
+userRouter.get('/:username/:offset/search', searchLimiter, searchUsers);
 userRouter.post('/confirm', confirmUser);
 userRouter.post(
   '/avatar',

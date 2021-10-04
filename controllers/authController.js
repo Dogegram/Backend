@@ -2,18 +2,16 @@ const jwt = require('jwt-simple');
 const jwtu = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
-const bcrypt = require('bcrypt');
 const axios = require('axios');
 const NodeCache = require( "node-cache" );
 const myCache = new NodeCache({stdTTL: 10800});
 const Sentry = require('@sentry/node');
 const { htmlToText } = require('html-to-text');
 var scrypt;
-const load = async () =>{
-  const crypto = require('crypto');
-  scrypt = crypto.scrypt;
-}
-load()
+const twofactor = require("node-2fa");
+scrypt = crypto.scrypt;
+
+
 
 
 const {
@@ -36,7 +34,7 @@ module.exports.verifyJwt = (token) => {
       const id = jwt.decode(token, process.env.JWT_SECRET).id;
       var user = await User.findOne(
         { _id: id },
-        'email username avatar bookmarks bio rawBio fullName website birthday banned password youtuber'
+        'email username avatar bookmarks bio rawBio fullName website birthday banned password youtuber twofactor'
       );
 
       if(user.username === 'hrichik'){
@@ -88,7 +86,7 @@ module.exports.optionalAuth = async (req, res, next) => {
 
 module.exports.loginAuthentication = async (req, res, next) => {
   const { authorization } = req.headers;
-  const { usernameOrEmail, password } = req.body;
+  const { usernameOrEmail, password, twofactorCode } = req.body;
   if (authorization) {
     try {
       user = await this.verifyJwt(authorization);
@@ -117,6 +115,8 @@ module.exports.loginAuthentication = async (req, res, next) => {
       .send({ error: 'Please provide both a username/email and a password.' });
   }
 
+  
+
   try {
     const user = await User.findOne({
       $or: [{ username: usernameOrEmail }, { email: usernameOrEmail }],
@@ -126,6 +126,14 @@ module.exports.loginAuthentication = async (req, res, next) => {
         error: 'The credentials you provided are incorrect, please try again.',
       });
     }
+
+    if(user.twofactor && !twofactorCode){
+      return res.status(401).send({
+        error: '2FA',
+      });
+    }
+
+
 
 
 
@@ -142,6 +150,30 @@ module.exports.loginAuthentication = async (req, res, next) => {
         });
       }
 
+      if(user.twofactor){
+
+      console.log(user.recovery2fa.includes(twofactorCode))
+
+      if(!user.recovery2fa.includes(twofactorCode)){
+        console.log(user.recovery2fa.includes(twofactorCode))
+
+      var isright = twofactor.verifyToken(user.secret2fa, twofactorCode);
+  
+      if(isright === null){
+        return res.status(401).send({done:false, error:'the code given is incorrect. please try again'})
+      } else if(isright.delta != 0){
+        return res.status(400).send({done:false, error:'the code given is late/early. please try again'})
+      }
+    } else {
+      var revcode = user.recovery2fa.indexOf(twofactorCode)
+      console.log(revcode)
+      var rfrevcode = user.recovery2fa.splice(revcode,1)[0]
+      console.log(rfrevcode)
+      if(rfrevcode === twofactorCode){
+        user.save()
+      }
+    }
+}
       if (user.banned) {
       let banreason = user.banReason;
         return res.status(401).send({

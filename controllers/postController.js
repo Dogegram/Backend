@@ -4,7 +4,6 @@ const Post = require('../models/Post');
 const PostVote = require('../models/PostVote');
 const Following = require('../models/Following');
 const Followers = require('../models/Followers');
-const Ads = require('../models/Ads');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const socketHandler = require('../handlers/socketHandler');

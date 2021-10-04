@@ -93,6 +93,17 @@ const UserSchema = new Schema({
   },
   pronoun:{
     type: String
+  },
+  secret2fa:{
+    type: String
+  },
+  recovery2fa:[
+    {
+      type:String
+    }
+  ],
+  twofactor:{
+    type: Boolean
   }
 });
 

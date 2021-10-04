@@ -3,10 +3,8 @@ const mongoose = require("mongoose");
 const connectToDb = async () => {
   try {
     const connection = await mongoose.connect(process.env.MONGO_URL, {
-      useCreateIndex: true,
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      useFindAndModify: false, 
     });
 
     console.log(`Connected to database ${connection.connections[0].name}`);

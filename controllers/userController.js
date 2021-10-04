@@ -26,6 +26,14 @@ const {sendVerificationBadgeEmail} = require('../utils/controllerUtils');
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
 
+const { customAlphabet } = require('nanoid');
+const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const nanoid = customAlphabet(alphabet, 6);
+
+const twofactor = require("node-2fa");
+
+var encodify = require('encodify');
+
 const algorithm = 'aes-256-ctr';
 const secretKey = process.env.ENC_KEY;
 
@@ -642,6 +650,131 @@ module.exports.searchUsers = async (req, res, next) => {
     next(err);
   }
 };
+
+module.exports.getTwoFactorAuth = async (req, res, next)=>{
+  const user = res.locals.user;
+
+  if(user.twofactor){
+    return res.status(401).send({done:false, message: 'Turn off 2FA to regenrate codes!'})
+  }
+
+  const newSecret = twofactor.generateSecret({ name: "Dogegram", account: user.email });
+
+  console.log(newSecret)
+/*
+  try{
+
+  const userDocument = await User.findOne({ _id: user._id });
+
+  user
+
+}catch(err){
+ throw new Error(err)       
+}
+*/  
+
+/**
+ * Genrates 2FA backup codes
+ * @function genrateBackupCodes2FA
+ * @param {number} howMany The amount of codes you want
+ * @returns {Object} An Object containg a Array of codes & their interpretation in NATO phonetics
+ */
+
+const genrateBackupCodes2FA = (howMany) => {
+
+  
+  let current = 1
+  let codes = []
+
+  while(current<=howMany){
+    console.log(current)
+
+  let code = nanoid()
+  codes.push(code)
+  current +=1
+  }
+  let natocodes = []
+  codes.forEach((data, index)=>{
+    let natocode = encodify.toNATOCode(data)
+    natocodes.push(natocode)
+  })
+
+  let obj = {
+    codes:codes,
+    nato:natocodes
+  }
+
+  return obj
+
+}
+  
+ var recoveryCodes = genrateBackupCodes2FA(3)
+
+ console.log(recoveryCodes) 
+
+ try{
+
+  var userdoc = await User.findOne({ _id: user._id })
+  userdoc.recovery2fa = recoveryCodes.codes
+  userdoc.secret2fa = newSecret.secret
+  await userdoc.save()
+} catch(err){
+  throw new Error(err)
+}
+  res.status(200).send({done:true, secretKey: newSecret.secret, qr: newSecret.qr, recovery:recoveryCodes})
+
+} 
+
+module.exports.confirm2FA = async (req, res, next) => {
+  const { twofactorCode } = req.body;
+  const user = res.locals.user;
+
+  const userdoc = await User.findOne({ _id: user._id }, { secret2fa:1,  _id:0 })
+  console.log(userdoc)
+
+
+  const isright = twofactor.verifyToken(userdoc.secret2fa, twofactorCode);
+
+  if(isright === null){
+    return res.status(401).send({done:false, message:'the code given is incorrect. please try again'})
+  } else if(isright.delta === 0){
+    return res.status(200).send({done:true, message:'the code given is correct. great!'})
+  } else {
+    return res.status(400).send({done:false, message:'the code given is late/early. please try again'})
+  }
+  return res.status(500).send({done:false, message:'you should not ever reach here, if you do then '})
+}
+
+module.exports.turnOn2FA = async (req, res, next) => {
+  const user = res.locals.user;
+  if(user.twofactor){
+    return res.status(200).send({done:false, message:"you have 2fa turned on already!?!?!"})
+  }
+  try{
+    var userdoc = await User.findOne({ _id: user._id })
+    userdoc.twofactor = true
+    userdoc.save()
+  } catch(err){
+    throw new Error(err)
+  }
+  res.status(200).send({done:true, message:"2FA set! hopefully you have a good time :)"})
+}
+
+module.exports.turnOff2FA = async (req, res, next) => {
+  const user = res.locals.user;
+  if(user.twofactor){
+  try{
+    var userdoc = await User.findOne({ _id: user._id })
+    userdoc.twofactor = false
+    userdoc.save()
+  } catch(err){
+    throw new Error(err)
+  }
+} else {
+  return res.status(400).send({done:false, message:"you have 2fa not set already?!?!?"})
+}
+  return res.status(200).send({done:true, message:"2FA unset! hopefully you have a good time (same as you started) :)"})
+}
 
 module.exports.confirmUser = async (req, res, next) => {
   const { token } = req.body;
