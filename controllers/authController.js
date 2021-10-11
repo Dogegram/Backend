@@ -390,7 +390,7 @@ module.exports.forgetpassreset = async (req, res, next)=>{
       { email: user.email },
       { password: hash }
     );
-    if (!passwordUpdate.nModified) {
+    if (!passwordUpdate.acknowledged) {
       throw new Error('Could not update your password.');
     } else {
       return res.send("Password Updated!")

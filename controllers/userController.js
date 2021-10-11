@@ -214,7 +214,7 @@ const username = requestingUser.username
    });
 
    console.log(userCreatorUpdate)
-   if (!userCreatorUpdate.nModified) {
+   if (!userCreatorUpdate.acknowledged) {
      if (!userCreatorUpdate.ok) {
        return res.status(500).send({ error: 'Could not give User Creator badge.' });
    }}
@@ -340,7 +340,7 @@ module.exports.verifyUser = async (req, res, next) => {
     });
 
     console.log(userVerifyUpdate)
-    if (!userVerifyUpdate.nModified) {
+    if (!userVerifyUpdate.acknowledged) {
       if (!userVerifyUpdate.ok) {
         return res.status(500).send({ error: 'Could not give User Verification badge.' });
       }
@@ -352,7 +352,7 @@ module.exports.verifyUser = async (req, res, next) => {
       {
          $set: { verified : undefined } 
     });
-      if (!userRemoveVerifyUpdate.nModified) {
+      if (!userRemoveVerifyUpdate.acknowledge) {
         return res.status(500).send({ error: 'Could not remove User Verification badge.' });
       }
       return res.send({ success: true, operation: 'un-verify' });
@@ -426,8 +426,9 @@ module.exports.followUser = async (req, res, next) => {
       { $push: { following: { user: userId } } }
     );
 
-    if (!followerUpdate.nModified || !followingUpdate.nModified) {
-      if (!followerUpdate.ok || !followingUpdate.ok) {
+    console.log(followerUpdate)
+    if (followerUpdate.modifiedCount === 0 || followingUpdate.modifiedCount === 0) {
+      if (!followerUpdate.acknowledged || !followingUpdate.acknowledged) {
         return res
           .status(500)
           .send({ error: 'Could not follow user please try again later.' });
@@ -445,10 +446,10 @@ module.exports.followUser = async (req, res, next) => {
         { user: user._id },
         { $pull: { following: { user: userId } } }
       );
-      if (!followerUnfollowUpdate.ok || !followingUnfollowUpdate.ok) {
+      if (!followerUnfollowUpdate.acknowledged || !followingUnfollowUpdate.acknowledged) {
         return res
           .status(500)
-          .send({ error: 'Could not follow user please try again later.' });
+          .send({ error: 'Could not unfollow user please try again later.' });
       }
       return res.send({ success: true, operation: 'unfollow' });
     }
@@ -873,7 +874,7 @@ module.exports.changeAvatar = async (req, res, next) => {
       { avatar: cdnURL }
     );
 
-    if (!avatarUpdate.nModified) {
+    if (!avatarUpdate.acknowledged) {
       throw new Error('Could not update user avatar.');
     }
 
@@ -894,7 +895,7 @@ module.exports.removeAvatar = async (req, res, next) => {
       { _id: user._id },
       { $unset: { avatar: '' } }
     );
-    if (!avatarUpdate.nModified) {
+    if (!avatarUpdate.acknowledged) {
       next(err);
     }
     return res.status(204).send();

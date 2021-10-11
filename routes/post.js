@@ -18,19 +18,26 @@ const {
   retrievePostFeed,
   retrieveSuggestedPosts,
   retrieveHashtagPosts,
+  retrievePostDetails
 } = require('../controllers/postController');
 const filters = require('../utils/filters');
 
 const postLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  message:{"error":"429 Too many requests, please try again later."}
+  message:{"error":"429 Too many requests, please try again later."},
+  keyGenerator:(req)=>{
+    req.header("cf-connecting-ip")
+  }
 });
 
 const voteLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 200,
-  message:{"error":"429 Too many requests, please try again later."}
+  message:{"error":"429 Too many requests, please try again later."},
+  keyGenerator:(req)=>{
+    req.header("cf-connecting-ip")
+  }
 });
 
 
@@ -38,6 +45,10 @@ postRouter.post('/', postLimiter, requireAuth, upload, createPost);
 postRouter.post('/:postId/vote',voteLimiter, requireAuth, votePost);
 
 postRouter.get('/suggested/:offset', requireAuth, retrieveSuggestedPosts);
+//internal use - start
+postRouter.get('/internal/meta/:postId', retrievePostDetails);
+//internal use - end
+
 postRouter.get('/filters', (req, res) => {
   res.send({ filters });
 });

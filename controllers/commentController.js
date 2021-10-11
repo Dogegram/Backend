@@ -131,7 +131,7 @@ module.exports.voteComment = async (req, res, next) => {
       },
       { $push: { votes: { author: user._id } } }
     );
-    if (!commentLikeUpdate.nModified) {
+    if (!commentLikeUpdate.acknowledged) {
       if (!commentLikeUpdate.ok) {
         return res
           .status(500)
@@ -143,7 +143,7 @@ module.exports.voteComment = async (req, res, next) => {
         { comment: commentId },
         { $pull: { votes: { author: user._id } } }
       );
-      if (!commentDislikeUpdate.nModified) {
+      if (!commentDislikeUpdate.acknowledged) {
         return res
           .status(500)
           .send({ error: 'Could not vote on the comment.' });
@@ -261,7 +261,7 @@ module.exports.voteCommentReply = async (req, res, next) => {
     );
     // Nothing was modified in the previous query meaning that the user has already liked the comment
     // Remove the user's like
-    if (!commentReplyLikeUpdate.nModified) {
+    if (!commentReplyLikeUpdate.acknowledged) {
       if (!commentReplyLikeUpdate.ok) {
         return res
           .status(500)
@@ -271,7 +271,7 @@ module.exports.voteCommentReply = async (req, res, next) => {
         { comment: commentReplyId },
         { $pull: { votes: { author: user._id } } }
       );
-      if (!commentReplyDislikeUpdate.nModified) {
+      if (!commentReplyDislikeUpdate.acknowledged) {
         return res
           .status(500)
           .send({ error: 'Could not vote on the comment reply.' });

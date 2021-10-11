@@ -250,6 +250,35 @@ s3.putObject(params, async (err, data) => {
 }
 };
 
+module.exports.retrievePostDetails = async (req, res, next) => {
+  const { postId } = req.params;
+  if(postId.length != 24){
+    return res.status(400).send('ID is invalid')
+  }
+  console.log(postId)
+  try {
+    const post = await Post.findOne(
+      { _id: ObjectId(postId) } ,
+      'caption image author'
+      ).populate('author', 'fullName');
+    if (!post) {
+      return res
+        .status(404)
+        .send({ error: 'Could not find a post with that id.' });
+    }
+
+    var meta = {};
+    meta.image = post.image;
+    meta.name = post.author.fullName;
+    meta.caption = post.caption ? post.caption : 'Just chilling...';
+    console.log(post)
+
+    return res.send(meta);
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports.deletePost = async (req, res, next) => {
   const { postId } = req.params;
   const user = res.locals.user;
@@ -347,9 +376,11 @@ module.exports.votePost = async (req, res, next) => {
         $push: { votes: { author: user._id } },
       }
     );
-    if (!postLikeUpdate.nModified) {
-      if (!postLikeUpdate.ok) {
-        return res.status(500).send({ error: 'Could not vote on the post.' });
+    console.log(postLikeUpdate)
+    if (postLikeUpdate.modifiedCount === 0) {
+      if (!postLikeUpdate.acknowledged) {
+        console.log('like post: ',postLikeUpdate.acknowledged)
+        return res.status(500).send({ error: 'Could not vote on the post. 1' });
       }
       // Nothing was modified in the previous query meaning that the user has already liked the post
       // Remove the user's like
@@ -358,8 +389,10 @@ module.exports.votePost = async (req, res, next) => {
         { $pull: { votes: { author: user._id } } }
       );
 
-      if (!postDislikeUpdate.nModified) {
-        return res.status(500).send({ error: 'Could not vote on the post.' });
+      console.log('dislike post: ',postDislikeUpdate)
+
+      if (postDislikeUpdate.modifiedCount === 0) {
+        return res.status(500).send({ error: 'Could not vote on the post. 2' });
       }
     } else {
       // Sending a like notification
@@ -391,6 +424,7 @@ module.exports.votePost = async (req, res, next) => {
     }
     return res.send({ success: true });
   } catch (err) {
+    console.log(err)
     next(err);
   }
 };

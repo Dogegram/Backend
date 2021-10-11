@@ -14,20 +14,29 @@ const {
 const loginLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
-  message:{"error":"429 Too many requests, please try again later."}
+  message:{"error":"429 Too many requests, please try again later."},
+  keyGenerator:(req)=>{
+    req.header("cf-connecting-ip")
+  }
 });
 
 const passLimiter = rateLimit({
   windowMs: 3 * 60 * 60 * 1000,
   max: 5,
-  message:{"error":"429 Too many requests, please try again later."}
+  message:{"error":"429 Too many requests, please try again later."},
+  keyGenerator:(req)=>{
+    req.header("cf-connecting-ip")
+  }
 });
 
 
 const signupLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 5,
-  message:{"error":"429 Too many requests, please try again later."}
+  message:{"error":"429 Too many requests, please try again later."},
+  keyGenerator:(req)=>{
+    req.header("cf-connecting-ip")
+  }
 });
 
 

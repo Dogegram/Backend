@@ -28,17 +28,26 @@ const { requireAuth, optionalAuth } = require('../controllers/authController');
 
 const followLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
-  max: 70
+  max: 70,
+  keyGenerator:(req)=>{
+    req.header("cf-connecting-ip")
+  }
 });
 
 const searchLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 50
+  max: 50,
+  keyGenerator:(req)=>{
+    req.header("cf-connecting-ip")
+  }
 }); 
 
 const avatarLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
-  max: 7 
+  max: 7,
+  keyGenerator:(req)=>{
+    req.header("cf-connecting-ip")
+  }
 });
 
 

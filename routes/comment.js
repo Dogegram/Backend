@@ -5,20 +5,29 @@ const rateLimit = require('express-rate-limit');
 const voteLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 200,
-  message:{"error":"429 Too many requests, please try again later."}
+  message:{"error":"429 Too many requests, please try again later."},
+  keyGenerator:(req)=>{
+    req.header("cf-connecting-ip")
+  }
 });
 
 
 const commentLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 200,
-  message:{"error":"429 Too many requests, please try again later."}
+  message:{"error":"429 Too many requests, please try again later."},
+  keyGenerator:(req)=>{
+    req.header("cf-connecting-ip")
+  }
 });
 
 const commentminLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 3,
-  message:{"error":"429 Too many requests, please try again later."}
+  message:{"error":"429 Too many requests, please try again later."},
+  keyGenerator:(req)=>{
+    req.header("cf-connecting-ip")
+  }
 });
 
 const { requireAuth } = require('../controllers/authController');

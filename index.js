@@ -109,5 +109,5 @@ io.use((socket, next) => {
   }
 }).on('connection', (socket) => {
   socket.join(socket.user.id);
-  console.log(`socket connected id: ${socket.id}, username: ${socket.user.id}`);
+ // console.log(`socket connected id: ${socket.id}, username: ${socket.user.id}`);
 });
