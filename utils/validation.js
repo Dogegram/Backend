@@ -33,7 +33,7 @@ module.exports.validateEmail = async (email) => {
     return 'Current email address has typos or is invalid, please recheck.'
    }
 
-  return 'false';
+  return false;
 };
 
 module.exports.validateFullName = (fullName) => {
