@@ -3,6 +3,7 @@ const resolver = new Resolver();
 resolver.setServers(['8.8.8.8']);
 
 module.exports.validateEmail = async (email) => {
+  //stage 1 - comman regex email format checking
   if (
     !email ||
     !email.match(
@@ -11,17 +12,26 @@ module.exports.validateEmail = async (email) => {
   ) {
     return 'Enter a valid email address.';
   }
-  var error;
+  
+  //stage 2 - DNS root checking - pretty comman in temp mail apps
+  var error, errorc;
   try{
   const arec = await resolver.resolve(email.split('@')[1])
-  const cnamerecs = await resolver.resolve(email.split('@')[1], 'CNAME')
   } catch(err){
-    console.log('arec')
+    console.log(err)
     error=0
   }
-  if(error === 0){
-    return 'Current email address is invalid or will bounce.'
- }
+ try{
+  const cnamerecs = await resolver.resolve(email.split('@')[1], 'CNAME')
+} catch(err){
+  console.log(err)
+  errorc=0
+}
+if(error === 0 && errorc === 0){
+  return 'Current email address is invalid or will bounce.'
+}
+
+  //stage 2 - DNS MX checking - just to get if this was a bogus email address or typed at random/ by mistake, tho it would trigger stage 2, maybe just a domain with A or CNAME record but no MX. 
 
   try{
     const mxrec = await resolver.resolve(email.split('@')[1], 'MX')
@@ -31,6 +41,12 @@ module.exports.validateEmail = async (email) => {
 
    if(error===1){
     return 'Current email address has typos or is invalid, please recheck.'
+   }
+
+   //stage 4 blacklist checking
+   const blacklist = ['pussport.com']
+   if(blacklist.includes(email.split('@')[1])){
+    return 'Current email address has been blacklisted.'
    }
 
   return false;
