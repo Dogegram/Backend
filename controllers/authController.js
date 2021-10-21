@@ -219,7 +219,7 @@ module.exports.register = async (req, res, next) => {
   const pronounError = validatePronoun(pronoun);
   if (pronounError) return res.status(400).send({ error: pronounError });
 
-  const emailError = validateEmail(email);
+  const emailError = await validateEmail(email);
   if (emailError) return res.status(400).send({ error: emailError });
 
   const passwordError = validatePassword(password);

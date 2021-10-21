@@ -1,4 +1,8 @@
-module.exports.validateEmail = (email) => {
+const { Resolver } = require('dns').promises;
+const resolver = new Resolver();
+resolver.setServers(['8.8.8.8']);
+
+module.exports.validateEmail = async (email) => {
   if (
     !email ||
     !email.match(
@@ -7,7 +11,29 @@ module.exports.validateEmail = (email) => {
   ) {
     return 'Enter a valid email address.';
   }
-  return false;
+  var error;
+  try{
+  const arec = await resolver.resolve(email.split('@')[1])
+  const cnamerecs = await resolver.resolve(email.split('@')[1], 'CNAME')
+  } catch(err){
+    console.log('arec')
+    error=0
+  }
+  if(error === 0){
+    return 'Current email address is invalid or will bounce.'
+ }
+
+  try{
+    const mxrec = await resolver.resolve(email.split('@')[1], 'MX')
+   } catch(err){
+    error=1
+  }
+
+   if(error===1){
+    return 'Current email address has typos or is invalid, please recheck.'
+   }
+
+  return 'false';
 };
 
 module.exports.validateFullName = (fullName) => {
