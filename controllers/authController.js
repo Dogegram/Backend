@@ -254,7 +254,7 @@ module.exports.register = async (req, res, next) => {
     })
 
     if(trygetusernamesame || trygetuseremailsame){
-      return res.status(400).send('User Email/username already exists.')
+      return res.status(400).send({error: 'User Email/username already exists.'})
     }
 
      confirmationToken = jwtu.sign(user, process.env.JWT_SECRET, { expiresIn: '3h' });

@@ -153,7 +153,7 @@ module.exports.sendEMail = async (to, subject, template, name, sendname) => {
       let template = handlebars.compile(source);
       const html = template({
         username: username,
-        confirmationUrl: `https://app.dogegram.xyz/confirm/${confirmationToken}`,
+        confirmationURL: `https://app.dogegram.xyz/confirm/${confirmationToken}`,
         url: "https://app.dogegram.xyz",
       });
       await this.sendEMail(email, 'Confirm your Dogegram account', html , 'Accounts', 'accounts');
