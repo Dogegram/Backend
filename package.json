@@ -1,6 +1,6 @@
 {
   "name": "dogegram-backend",
-  "version": "vBeta8.2.2",
+  "version": "8.2.2",
   "description": "",
   "main": "index.js",
   "engines": {
