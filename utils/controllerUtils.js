@@ -112,17 +112,31 @@ module.exports.retrieveComments = async (postId, offset, exclude = 0) => {
  * @param {html} template Html to include in the email
  * @param {html} name Topic Of the email
  * @param {html} sendname Email address start
+ * @param {html} dtemplate use sendgrid dynamic template boolean
+ * @param {html} dtemplateId sendgrid template id
+ * @param {html} dtemplatedata sendgrid 'dynamicTemplateData' object
  */
-module.exports.sendEMail = async (to, subject, template, name, sendname) => {
+module.exports.sendEMail = async (to, subject, template, name, sendname, dtemplate, dtemplateId, dtemplatedata) => {
  try {
+   if(dtemplate){
+    const msg = {
+      to: to, 
+      from: `Dogegram ${name} Team <noreply-${sendname}@email.dogegram.xyz>`, 
+      templateId: dtemplateId,
+      dynamicTemplateData: dtemplatedata,
+    }
+    await sgMail.send(msg);
+
+   } else {
   const msg = {
     to: to, 
-    from: `Dogegram ${name} Team <noreply-${name}@email.dogegram.xyz>`, 
+    from: `Dogegram ${name} Team <noreply-${sendname}@email.dogegram.xyz>`, 
     subject: subject,
     html: template
   }
   await sgMail.send(msg);
 
+}
   } catch (error) {
     console.error(error);
 
@@ -146,17 +160,11 @@ module.exports.sendEMail = async (to, subject, template, name, sendname) => {
 ) => {
 
     try {
-      const source = fs.readFileSync(
-        'templates/confirmationEmail.html',
-        'utf8'
-      );
-      let template = handlebars.compile(source);
-      const html = template({
+      const dtdata = {
         username: username,
         confirmationURL: `https://app.dogegram.xyz/confirm/${confirmationToken}`,
-        url: "https://app.dogegram.xyz",
-      });
-      await this.sendEMail(email, 'Confirm your Dogegram account', html , 'Accounts', 'accounts');
+      }
+      await this.sendEMail(email, 'Confirm your Dogegram account', null , 'Accounts', 'accounts', true, process.env.SENDGRID_CONFIRMATION_TEMPLATE_ID, dtdata);
     } catch (err) {
       console.log(err);
   }
@@ -183,7 +191,7 @@ module.exports.sendEMail = async (to, subject, template, name, sendname) => {
         username: username,
         url: "https://app.dogegram.xyz",
       });
-      await this.sendEMail(email, 'Congrats, You Dogegram account has been verified!', html, 'Verification', 'verify');
+      await this.sendEMail(email, 'Congrats, You Dogegram account has been verified!', html, 'Verification', 'verification');
     } catch (err) {
       console.log(err);
   }
