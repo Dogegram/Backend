@@ -253,7 +253,7 @@ s3.putObject(params, async (err, data) => {
 module.exports.retrievePostDetails = async (req, res, next) => {
   const { postId } = req.params;
   if(postId.length != 24){
-    return res.status(400).send('ID is invalid')
+    return res.status(400).send({ error: 'ID is invalid'})
   }
   console.log(postId)
   try {
