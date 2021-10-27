@@ -260,16 +260,16 @@ module.exports.retrievePostDetails = async (req, res, next) => {
     const post = await Post.findOne(
       { _id: ObjectId(postId) } ,
       'caption image author'
-      ).populate('author', 'fullName');
+      ).populate('author', 'fullName username');
     if (!post) {
       return res
         .status(404)
         .send({ error: 'Could not find a post with that id.' });
     }
-
     var meta = {};
     meta.image = post.image;
     meta.name = post.author.fullName;
+    meta.userName = post.author.username;
     meta.caption = post.caption ? post.caption : 'Just chilling...';
     console.log(post)
 
