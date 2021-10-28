@@ -196,15 +196,11 @@ const username = requestingUser.username
     //@me TODO: change this with key from env process.env.YOUTUBE_DATA_KEY (and you forgot damm it)
   var request = await fetch(`https://www.googleapis.com/youtube/v3/channels?mine=true&part=statistics&access_token=${atoken}&key=${process.env.YOUTUBE_DATA_KEY}`);
   var response = await request.json()
-  console.log(response)
   var cdata = response.items[0]
-  console.log(cdata)
-  console.log(cdata.statistics)
   if(!cdata.statistics.hiddenSubscriberCount){
   var subCount = cdata.statistics.subscriberCount;
   var cid = cdata.id;
-  console.log("here")
-  if(subCount>10){
+  if(subCount>100){
     console.log("here too?")
     const userCreatorUpdate = await User.updateOne({
       username: username 
