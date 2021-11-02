@@ -5,8 +5,8 @@ const ObjectId = require('mongoose').Types.ObjectId;
 module.exports.createSession = async (req, res, next) => {
   const user = res.locals.user;
   const userid = user._id.toString()
-  console.log(userid)
-  if(!Number.isInteger(req.params.amount)){
+  console.log(req.params.amount % 1 != 0)
+  if(req.params.amount % 1 != 0){
     return  res.sendStatus(400)
   }
     const session = await stripe.paymentIntents.create({
