@@ -1,6 +1,6 @@
 # Dogegram Backend
 
-## Current Release - vBeta8.2.2
+## Current Release - vBeta8.3
 
 ## Local Development :-
 - `git clone https://github.com/DogeGram/Backend.git`

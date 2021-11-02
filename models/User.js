@@ -104,6 +104,9 @@ const UserSchema = new Schema({
   ],
   twofactor:{
     type: Boolean
+  },
+  adwallet:{
+    type: Number
   }
 });
 

@@ -839,7 +839,6 @@ module.exports.changeAvatar = async (req, res, next) => {
    const predictions = await model.classify(image)
    image.dispose()
 
-
    if(predictions[0].probability < 0.3){
     console.log(predictions)
     return res.status(401).send({success:false, message:"This file has been detected NSFW by our systems, please don't post these things here"});

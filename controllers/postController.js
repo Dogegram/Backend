@@ -99,9 +99,6 @@ module.exports.createPost = async (req, res, next) => {
     
     var fileStream = fs.createReadStream(myfile.path);
     var filename = myfile.originalname;
-    console.log(filename);
-    console.log(myfile.path)
-    console.log("here?")
     const imagecache = fs.readFileSync(myfile.path)
 
 

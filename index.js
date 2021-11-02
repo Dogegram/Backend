@@ -49,6 +49,7 @@ app.use(Sentry.Handlers.tracingHandler());
 app.use(helmet());
 app.use(helmet.hidePoweredBy());
 app.use(cors());
+app.use('/api/payment/webhook', bodyParser.raw({type: "*/*"}))
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 app.set('trust proxy', 1);
