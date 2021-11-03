@@ -4,14 +4,28 @@ const ObjectId = require('mongoose').Types.ObjectId;
 
 module.exports.createSession = async (req, res, next) => {
   const user = res.locals.user;
+  var userdata = await User.findOne({ _id: ObjectId(user._id)}, { adwallet: 1, baseAdWalletCurrency: 1 })
+
+  var currency = 'usd'
+  if(!userdata.baseAdWalletCurrency){
+  if(req.headers['cf-ipcountry'] === 'IN'){
+    currency = 'inr'
+  }
+} else {
+  currency = userdata.baseAdWalletCurrency
+}
   const userid = user._id.toString()
   console.log(req.params.amount % 1 != 0)
   if(req.params.amount % 1 != 0){
     return  res.sendStatus(400)
   }
+  if(!userdata.baseAdWalletCurrency){
+    userdata.baseAdWalletCurrency = currency;
+    userdata.save()
+  }
     const session = await stripe.paymentIntents.create({
         amount: req.params.amount*100,
-        currency: 'usd',
+        currency: currency,
         payment_method_types: ['card'],
         metadata:{
           user_id: userid
@@ -44,7 +58,7 @@ module.exports.getWebhook = async (req, res, next) => {
       intent = event.data.object;
 
       try{
-        var userdata = await User.findOne({ _id: ObjectId(intent.metadata.user_id)}, { adwallet: 1 })
+        var userdata = await User.findOne({ _id: ObjectId(intent.metadata.user_id)}, { adwallet: 1, baseAdWalletCurrency: 1 })
         console.log(userdata)
         var wallet = userdata.adwallet || 0
         wallet += intent.amount/100

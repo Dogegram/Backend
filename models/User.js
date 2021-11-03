@@ -107,6 +107,9 @@ const UserSchema = new Schema({
   },
   adwallet:{
     type: Number
+  },
+  baseAdWalletCurrency:{
+    type: String
   }
 });
 
