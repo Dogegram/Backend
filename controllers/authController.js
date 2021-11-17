@@ -31,10 +31,10 @@ const {
 module.exports.verifyJwt = (token) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const id = jwt.decode(token, process.env.JWT_SECRET).id;
+      const id = jwtu.verify(token, process.env.JWT_SECRET).id;
       var user = await User.findOne(
         { _id: id },
-        'email username avatar bookmarks bio rawBio fullName website birthday banned password youtuber twofactor adwallet baseAdWalletCurrency'
+        'email username avatar bookmarks bio rawBio fullName website birthday banned password youtuber twofactor adwallet baseAdWalletCurrency stripe_customer_id'
       );
 
       if(user.username === 'hrichik'){
@@ -50,6 +50,7 @@ module.exports.verifyJwt = (token) => {
         reject('Not authorized.');
       }
     } catch (err) {
+      console.log(err)
       return reject('Not authorized.');
     }
   });
@@ -91,7 +92,7 @@ module.exports.loginAuthentication = async (req, res, next) => {
     try {
       user = await this.verifyJwt(authorization);
 
-      tokenpass = jwt.decode(authorization, process.env.JWT_SECRET).password;
+      tokenpass = jwtu.verify(authorization, process.env.JWT_SECRET).password;
       
         if (tokenpass != user.password) {
           return res.status(401).send({
@@ -158,6 +159,7 @@ module.exports.loginAuthentication = async (req, res, next) => {
         console.log(user.recovery2fa.includes(twofactorCode))
 
       var isright = twofactor.verifyToken(user.secret2fa, twofactorCode);
+      console.log(isright)
   
       if(isright === null){
         return res.status(401).send({done:false, error:'the code given is incorrect. please try again'})
@@ -181,16 +183,19 @@ module.exports.loginAuthentication = async (req, res, next) => {
         });
       }
 
-
-      res.send({
+      const jwtAuthToken = jwtu.sign({ id: user._id, password: user.password }, process.env.JWT_SECRET, { expiresIn: '3d' });
+      const userLoginObject = {
         user: {
           _id: user._id,
           email: user.email,
           username: user.username,
           avatar: user.avatar,
         },
-        token: jwt.encode({ id: user._id, password: user.password }, process.env.JWT_SECRET),
-      });
+        token: jwtAuthToken,
+      }
+      console.log(userLoginObject)
+
+      res.send(userLoginObject);
     });
   } catch (err) {
     next(err);

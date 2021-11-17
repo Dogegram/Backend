@@ -49,7 +49,7 @@ app.use(Sentry.Handlers.tracingHandler());
 app.use(helmet());
 app.use(helmet.hidePoweredBy());
 var corsOptions = {
-  origin: ["https://dogegram.xyz", /\.dogegram\.xyz$/],
+  origin: ["https://dogegram.xyz", /\.dogegram\.xyz$/, "https://localhost:3000"],
   exposedHeaders:'*',
   optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
 }
@@ -59,7 +59,6 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 app.set('trust proxy', 1);
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Max-Age", "7150");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, X-Req-Country");
   res.header("X-Req-IP", req.header("cf-connecting-ip"));
@@ -102,7 +101,7 @@ io.use((socket, next) => {
   const token = socket.handshake.query.token;
   if (token) {
     try {
-      const user = jwt.decode(token, process.env.JWT_SECRET);
+      const user = jwtu.verify(token, process.env.JWT_SECRET);
       if (!user) {
         return next(new Error('Not authorized.'));
       }

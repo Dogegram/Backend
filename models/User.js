@@ -110,7 +110,16 @@ const UserSchema = new Schema({
   },
   baseAdWalletCurrency:{
     type: String
-  }
+  },
+  stripe_customer_id:{
+    type: String
+  },
+  creator_payout_enabled:{
+    type: Boolean
+  },
+  stripe_account_id:{
+    type: String,
+  },
 });
 
 /*
