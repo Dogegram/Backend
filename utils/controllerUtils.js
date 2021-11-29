@@ -164,7 +164,31 @@ module.exports.sendEMail = async (to, subject, template, name, sendname, dtempla
         username: username,
         confirmationURL: `https://app.dogegram.xyz/confirm/${confirmationToken}`,
       }
-      await this.sendEMail(email, 'Confirm your Dogegram account', null , 'Accounts', 'accounts', true, process.env.SENDGRID_CONFIRMATION_TEMPLATE_ID, dtdata);
+      await this.sendEMail(email, null, null , 'Accounts', 'accounts', true, process.env.SENDGRID_CONFIRMATION_TEMPLATE_ID, dtdata);
+    } catch (err) {
+      console.log(err);
+  }
+};
+
+/**
+ * Sends a email to user when they receive a new whisper
+ * @function sendWhisperEmail
+ * @param {string} username The username of the user who sent the whisper
+ * @param {string} email The email of the user to send the email to
+ * @param {string} message the message that was sent
+ */
+ module.exports.sendWhisperEmail = async (
+  username,
+  email,
+  message
+) => {
+
+    try {
+      const dtdata = {
+        username: username,
+        message: message,
+      }
+      await this.sendEMail(email, null, null , 'Social', 'notifications', true, 'd-83342eff1dfc49e5abf4da4fda3df305', dtdata);
     } catch (err) {
       console.log(err);
   }
@@ -175,6 +199,7 @@ module.exports.sendEMail = async (to, subject, template, name, sendname, dtempla
  * @function sendVerificationBadgeEmail
  * @param {string} username The username of the user to send the email to
  * @param {string} email The email of the user to send the email to
+ * 
  */
  module.exports.sendVerificationBadgeEmail = async (
   username,
