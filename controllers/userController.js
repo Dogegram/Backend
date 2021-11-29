@@ -22,7 +22,7 @@ var xss = require("xss");
 const fetch = require("node-fetch")
 const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
-const {sendVerificationBadgeEmail} = require('../utils/controllerUtils');
+const {sendVerificationBadgeEmail, sendWhisperEmail} = require('../utils/controllerUtils');
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
 
@@ -186,6 +186,37 @@ module.exports.retrieveUser = async (req, res, next) => {
 module.exports.trackLinks = async (req, res, next) => {
   console.log(req.headers)
   res.send("good browser :)")
+}
+
+module.exports.sendWhisper = async (req, res, next) => {
+  //shhhhh....
+  // send a notification to the user when they receive a wisper
+  const { user } = res.locals;
+  const { message } = req.body;
+  const { username } = req.params;
+  const userToSendTo = await User.findOne({ username }, { _id: 1, email: 1, whisperEmail: 1 });
+  //check message length against 200 characters limit
+  if (message.length === 0) {
+    return res.status(400).send({ error: 'Bruh. Message cannot be empty.' });
+  }
+  if (message.length > 200) {
+    return res.status(400).send({ error: 'Message too long?!?! (we know you bypassed our frontend (9_9) )' });
+  }
+  //just in case the user doesn't exist and some hecker dude just tried to pwn us
+  if (!userToSendTo) {
+    return res.status(404).send({ error: 'User not found' });
+  }
+  const notification = new Notification({
+    sender: user._id,
+    receiver: userToSendTo._id,
+    notificationData:{ message: message },
+    notificationType: 'whisper',
+  });
+  await notification.save();
+  if(userToSendTo.whisperEmail){
+  await sendWhisperEmail( user.username, userToSendTo.email, message);
+  }
+  res.send({ message: 'Shh, Whisper sent!' });
 }
 
 module.exports.creatorConnectJoin = async (req, res, next) => {
@@ -600,7 +631,7 @@ module.exports.searchUsers = async (req, res, next) => {
     const users = await User.aggregate([
       {
         $match: {
-          username: { $regex: new RegExp(username), $options: 'i' },
+          username: { $regex: new RegExp(username.toString()), $options: 'i' },
         },
       },
       {
@@ -901,16 +932,19 @@ module.exports.removeAvatar = async (req, res, next) => {
 
 module.exports.updateProfile = async (req, res, next) => {
   const user = res.locals.user;
-  const { fullName, username, website, bio, email } = req.body;
+  const { fullName, username, website, bio, email, whisperEmail } = req.body;
   let confirmationToken = undefined;
   let updatedFields = {};
   try {
     const userDocument = await User.findOne({ _id: user._id });
 
-    console.log(userDocument)
 
-    if(fullName === userDocument.fullName && username === userDocument.username && website === userDocument.website && bio === userDocument.rawBio){
+    if(fullName === userDocument.fullName && username === userDocument.username && website === userDocument.website && bio === userDocument.rawBio && whisperEmail === userDocument.whisperEmail){
       return res.status(400).send({ error: "At least change some things, add something new or fix any typo. Do something." });
+    }
+
+    if(typeof whisperEmail != 'boolean'){
+      return res.status(400).send({ error: "Don't try to pwn us you idiot, error: whisper email should be an boolean" });
     }
 
     if (fullName) {
@@ -925,7 +959,7 @@ module.exports.updateProfile = async (req, res, next) => {
       if (usernameError) return res.status(400).send({ error: usernameError });
       // Make sure the username to update to is not the current one
       if (username !== user.username) {
-        const existingUser = await User.findOne({ username });
+        const existingUser = await User.findOne({ username: { $eq: username } });
         if (existingUser)
           return res
             .status(400)
@@ -990,6 +1024,11 @@ module.exports.updateProfile = async (req, res, next) => {
       userDocument.rawBio = undefined;
       updatedFields.bio = undefined;
       updatedFields.rawBio = undefined;
+    }
+
+    if(whisperEmail != undefined){
+      userDocument.whisperEmail = whisperEmail;
+      updatedFields.whisperEmail = whisperEmail;
     }
 
     /*

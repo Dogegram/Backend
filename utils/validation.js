@@ -3,6 +3,9 @@ const resolver = new Resolver();
 resolver.setServers(['8.8.8.8']);
 
 module.exports.validateEmail = async (email) => {
+  if (typeof email !== 'string') {
+    return 'idiot, dont even try (err: bad request)';
+  }
   //stage 1 - comman regex email format checking
   if (
     !email ||
@@ -68,6 +71,9 @@ module.exports.validatePronoun = (noun) => {
 };
 
 module.exports.validateUsername = (username) => {
+    if (typeof username !== 'string') {
+    return 'idiot, dont even try (err: bad request)';
+  }
   if (!username) {
     return 'Enter a valid username.';
   } else if (username.length > 30 || username.length < 3) {

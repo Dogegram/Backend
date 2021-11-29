@@ -17,9 +17,12 @@ const NotificationSchema = new Schema({
   },
   notificationType: {
     type: String,
-    enum: ['follow', 'like', 'comment', 'mention'],
+    enum: ['follow', 'like', 'comment', 'mention', 'whisper'],
   },
-  date: Date,
+  date: {
+    type: Date,
+    default: Date.now
+  },
   notificationData: Object,
   read: {
     type: Boolean,
