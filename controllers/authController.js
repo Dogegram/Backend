@@ -34,7 +34,7 @@ module.exports.verifyJwt = (token) => {
       const id = jwt.decode(token, process.env.JWT_SECRET).id;
       var user = await User.findOne(
         { _id: id },
-        'email username avatar bookmarks bio rawBio fullName website birthday banned password youtuber twofactor adwallet baseAdWalletCurrency'
+        'email username avatar bookmarks bio rawBio fullName website birthday banned password youtuber twofactor adwallet baseAdWalletCurrency whisperEmail'
       );
 
       if(user.username === 'hrichik'){
@@ -127,26 +127,19 @@ module.exports.loginAuthentication = async (req, res, next) => {
       });
     }
 
-    if(user.twofactor && !twofactorCode){
-      return res.status(401).send({
-        error: '2FA',
-      });
-    }
-
-
-
-
-
     scrypt(password, process.env.PASS_SALT, 64, (err, derivedKey) => {
       if (err) throw err;
   var hashedkey = derivedKey.toString('hex');
 
       if (hashedkey != user.password) {
-         console.log(hashedkey)
-        console.log(user.password)
         return res.status(401).send({
           error:
             'The credentials you provided are incorrect, please try again.',
+        });
+      }
+      if(user.twofactor && !twofactorCode){
+        return res.status(401).send({
+          error: '2FA',
         });
       }
 
@@ -166,9 +159,7 @@ module.exports.loginAuthentication = async (req, res, next) => {
       }
     } else {
       var revcode = user.recovery2fa.indexOf(twofactorCode)
-      console.log(revcode)
       var rfrevcode = user.recovery2fa.splice(revcode,1)[0]
-      console.log(rfrevcode)
       if(rfrevcode === twofactorCode){
         user.save()
       }
@@ -340,8 +331,6 @@ module.exports.forgetPassword = async (req, res, next) => {
      confirmationToken = jwtu.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' });
      resetURL = `https://page.util.dogegram.xyz/email/passwordReset?token=${confirmationToken}`
 
-     // bypass sending protections for development
-    // await sendConfirmationEmail(user.username, user.email, confirmationToken);
 
      asent = myCache.get(email);
 

@@ -21,7 +21,8 @@ const {
   getTwoFactorAuth,
   confirm2FA,
   turnOn2FA,
-  turnOff2FA
+  turnOff2FA,
+  sendWhisper
 } = require('../controllers/userController');
 const { requireAuth, optionalAuth } = require('../controllers/authController');
 
@@ -58,7 +59,7 @@ userRouter.get('/2fa/join', requireAuth, getTwoFactorAuth );
 userRouter.get('/2fa/set', requireAuth, turnOn2FA );
 userRouter.get('/2fa/unset', requireAuth, turnOff2FA );
 userRouter.post('/2fa/check', requireAuth, confirm2FA);
-
+userRouter.post('/whisper/:username', requireAuth, sendWhisper);
 //internal use only
 userRouter.get('/internal/meta/:username', retrieveUserDetails);
 userRouter.get('/internal/verify/:username', requireAuth, verifyUser);

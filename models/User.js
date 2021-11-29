@@ -110,7 +110,10 @@ const UserSchema = new Schema({
   },
   baseAdWalletCurrency:{
     type: String
-  }
+  },
+  whisperEmail:{
+    type: Boolean
+  },
 });
 
 /*
