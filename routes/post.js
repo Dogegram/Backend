@@ -27,8 +27,9 @@ const postLimiter = rateLimit({
   max: 5,
   message:{"error":"429 Too many requests, please try again later."},
   keyGenerator:(req)=>{
-    req.header("cf-connecting-ip")
-  }
+    return res.locals.user._id
+  },
+  skipFailedRequests:true
 });
 
 const voteLimiter = rateLimit({
@@ -36,8 +37,9 @@ const voteLimiter = rateLimit({
   max: 200,
   message:{"error":"429 Too many requests, please try again later."},
   keyGenerator:(req)=>{
-    req.header("cf-connecting-ip")
-  }
+    return res.locals.user._id
+  },
+  skipFailedRequests:true
 });
 
 

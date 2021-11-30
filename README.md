@@ -1,6 +1,13 @@
 # Dogegram Backend
 
-## Current Release - vBeta8.4
+## Current Release - vBeta8.4.1 (Patch)
+
+## Changelog 8.4.1
+ - Fix rate limiting stuff
+ - Add rate limit on whisper
+
+## Changelog (all other versions)
+ - Everything until 8.4.1 will be here lol
 
 ## Local Development :-
 - `git clone https://github.com/DogeGram/Backend.git`

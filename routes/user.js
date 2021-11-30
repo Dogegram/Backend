@@ -31,24 +31,36 @@ const followLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 70,
   keyGenerator:(req)=>{
-    req.header("cf-connecting-ip")
-  }
+    return res.locals.user._id
+  },
+  skipFailedRequests:true
 });
 
 const searchLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 50,
   keyGenerator:(req)=>{
-    req.header("cf-connecting-ip")
-  }
+    return req.header("cf-connecting-ip")
+  },
+  skipFailedRequests:true,
 }); 
 
 const avatarLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 7,
   keyGenerator:(req)=>{
-    req.header("cf-connecting-ip")
-  }
+    return res.locals.user._id
+  },
+  skipFailedRequests:true,
+});
+
+const whisperLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 10,
+  keyGenerator:(req, res)=>{
+    return res.locals.user._id
+  },
+  skipFailedRequests:true
 });
 
 
@@ -59,7 +71,7 @@ userRouter.get('/2fa/join', requireAuth, getTwoFactorAuth );
 userRouter.get('/2fa/set', requireAuth, turnOn2FA );
 userRouter.get('/2fa/unset', requireAuth, turnOff2FA );
 userRouter.post('/2fa/check', requireAuth, confirm2FA);
-userRouter.post('/whisper/:username', requireAuth, sendWhisper);
+userRouter.post('/whisper/:username', requireAuth, whisperLimiter, sendWhisper);
 //internal use only
 userRouter.get('/internal/meta/:username', retrieveUserDetails);
 userRouter.get('/internal/verify/:username', requireAuth, verifyUser);
