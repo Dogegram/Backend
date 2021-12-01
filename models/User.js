@@ -114,6 +114,15 @@ const UserSchema = new Schema({
   whisperEmail:{
     type: Boolean
   },
+  stripe_customer_id:{
+    type: String
+  },
+  creator_payout_enabled:{
+    type: Boolean
+  },
+  stripe_account_id:{
+    type: String,
+  },
 });
 
 /*

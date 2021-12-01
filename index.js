@@ -61,6 +61,10 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 app.set('trust proxy', 1);
 /*app.use((req, res, next) => {
+=======
+app.use((req, res, next) => {
+  res.header("Access-Control-Max-Age", "7150");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, X-Req-Country");
   res.header("X-Req-IP", req.header("cf-connecting-ip"));
   res.header("X-Req-Country", req.header("cf-ipcountry"));
   next();
