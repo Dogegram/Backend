@@ -30,8 +30,7 @@ const { requireAuth, optionalAuth } = require('../controllers/authController');
 const followLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 70,
-  keyGenerator:(req)=>{
-    return res.locals.user._id
+  keyGenerator:(req, res)=>{    return res.locals.user._id
   },
   skipFailedRequests:true
 });
@@ -39,8 +38,7 @@ const followLimiter = rateLimit({
 const searchLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 50,
-  keyGenerator:(req)=>{
-    return req.header("cf-connecting-ip")
+  keyGenerator:(req, res)=>{    return req.header("cf-connecting-ip")
   },
   skipFailedRequests:true,
 }); 
@@ -48,8 +46,7 @@ const searchLimiter = rateLimit({
 const avatarLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 7,
-  keyGenerator:(req)=>{
-    return res.locals.user._id
+  keyGenerator:(req, res)=>{    return res.locals.user._id
   },
   skipFailedRequests:true,
 });

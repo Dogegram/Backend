@@ -12,7 +12,7 @@ const limiter = rateLimit({
     windowMs:  60000,
     max: 100,
     message:{"error":"429 too many requests"},
-    keyGenerator:(req)=>{
+    keyGenerator:(req, res)=>{
       req.header("cf-connecting-ip")
     }
   });

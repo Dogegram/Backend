@@ -1,6 +1,9 @@
 # Dogegram Backend
 
-## Current Release - vBeta8.4.1 (Patch)
+## Current Release - vBeta8.4.2 (Patch)
+
+## Changelog 8.4.2
+ - Fix rate limiting stuff i borke last patch damm it
 
 ## Changelog 8.4.1
  - Fix rate limiting stuff
