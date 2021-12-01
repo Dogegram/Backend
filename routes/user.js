@@ -30,7 +30,7 @@ const { requireAuth, optionalAuth } = require('../controllers/authController');
 const followLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 70,
-  keyGenerator:(req)=>{
+  keyGenerator:(req, res)=>{    
     return res.locals.user._id
   },
   skipFailedRequests:true
@@ -39,7 +39,7 @@ const followLimiter = rateLimit({
 const searchLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 50,
-  keyGenerator:(req)=>{
+  keyGenerator:(req, res)=>{       
     return req.header("cf-connecting-ip")
   },
   skipFailedRequests:true,
@@ -48,7 +48,7 @@ const searchLimiter = rateLimit({
 const avatarLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 7,
-  keyGenerator:(req)=>{
+  keyGenerator:(req, res)=>{    
     return res.locals.user._id
   },
   skipFailedRequests:true,
@@ -84,14 +84,14 @@ userRouter.get('/:username/:offset/search', searchLimiter, searchUsers);
 userRouter.post('/confirm', confirmUser);
 userRouter.post(
   '/avatar',
-  avatarLimiter,
   requireAuth,
+  avatarLimiter,
   changeAvatar
 );
-userRouter.put('/', avatarLimiter, requireAuth, updateProfile);
+userRouter.put('/', requireAuth, avatarLimiter, updateProfile);
 
 userRouter.delete('/avatar', requireAuth, removeAvatar);
 
-userRouter.post('/:userId/follow', followLimiter, requireAuth, followUser);
+userRouter.post('/:userId/follow', requireAuth, followLimiter, followUser);
 
 module.exports = userRouter;

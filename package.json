@@ -26,8 +26,8 @@
   "dependencies": {
     "@aws-sdk/client-ses": "^3.14.0",
     "@sendgrid/mail": "^7.4.4",
-    "@sentry/node": "^6.4.0",
-    "@sentry/tracing": "^6.4.0",
+    "@sentry/node": "^6.15.0",
+    "@sentry/tracing": "^6.15.0",
     "@tensorflow-models/mobilenet": "^2.1.0",
     "@tensorflow-models/toxicity": "^1.2.2",
     "@tensorflow/tfjs-node": "^3.9.0",
