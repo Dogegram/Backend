@@ -37,10 +37,6 @@ const voteLimiter = rateLimit({
   max: 200,
   message:{"error":"429 Too many requests, please try again later."},
   keyGenerator:(req, res)=>{
-   // console.log(res)
-
-    console.log(res.__sentry_transaction)
-    console.log(res.locals)
     return res.locals.user._id
   },
   skipFailedRequests:true
