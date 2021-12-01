@@ -111,6 +111,9 @@ const UserSchema = new Schema({
   baseAdWalletCurrency:{
     type: String
   },
+  whisperEmail:{
+    type: Boolean
+  },
   stripe_customer_id:{
     type: String
   },

@@ -9,6 +9,7 @@ const path = require('path');
 const socketio = require('socket.io');
 const jwt = require('jwt-simple');
 const connectToDb = require("./utils/db");
+const multer = require('multer');
 
 const Sentry = require('@sentry/node');
 const Tracing = require("@sentry/tracing");
@@ -51,20 +52,23 @@ app.use(helmet.hidePoweredBy());
 var corsOptions = {
   origin: ["https://dogegram.xyz", /\.dogegram\.xyz$/, "https://localhost:3000"],
   exposedHeaders:'*',
-  optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
+  optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+  allowedHeaders: '*'
 }
 app.use(cors(corsOptions));
 app.use('/api/payment/webhook', bodyParser.raw({type: "*/*"}))
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 app.set('trust proxy', 1);
+/*app.use((req, res, next) => {
+=======
 app.use((req, res, next) => {
   res.header("Access-Control-Max-Age", "7150");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, X-Req-Country");
   res.header("X-Req-IP", req.header("cf-connecting-ip"));
   res.header("X-Req-Country", req.header("cf-ipcountry"));
   next();
-});
+});*/
 app.use('/api', apiRouter);
 
 app.get('/', (req, res)=>{
@@ -83,8 +87,11 @@ app.use(
 app.use(function onError(err, req, res, next) {
   // The error id is attached to `res.sentry` to be returned
   // and optionally displayed to the user for support.
+  if(err instanceof multer.MulterError){
+    return res.status(400).send({error: err.message})
+  }
   res.statusCode = 500;
-  res.end(res.sentry + "\n An unexpected error ocurred, please try again later. Please share the above ID with the support team if this occurs many times");
+  res.end(`An unexpected error ocurred, Request Trace ID: ${res.sentry}`);
 });
 
 

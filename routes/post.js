@@ -26,23 +26,25 @@ const postLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   message:{"error":"429 Too many requests, please try again later."},
-  keyGenerator:(req)=>{
-    req.header("cf-connecting-ip")
-  }
+  keyGenerator:(req, res)=>{
+    return res.locals.user._id
+  },
+  skipFailedRequests:true
 });
 
 const voteLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 200,
   message:{"error":"429 Too many requests, please try again later."},
-  keyGenerator:(req)=>{
-    req.header("cf-connecting-ip")
-  }
+  keyGenerator:(req, res)=>{
+    return res.locals.user._id
+  },
+  skipFailedRequests:true
 });
 
 
-postRouter.post('/', postLimiter, requireAuth, upload, createPost);
-postRouter.post('/:postId/vote',voteLimiter, requireAuth, votePost);
+postRouter.post('/', requireAuth, postLimiter, upload, createPost);
+postRouter.post('/:postId/vote', requireAuth,voteLimiter, votePost);
 
 postRouter.get('/suggested/:offset', requireAuth, retrieveSuggestedPosts);
 //internal use - start

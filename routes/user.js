@@ -21,7 +21,8 @@ const {
   getTwoFactorAuth,
   confirm2FA,
   turnOn2FA,
-  turnOff2FA
+  turnOff2FA,
+  sendWhisper
 } = require('../controllers/userController');
 const { requireAuth, optionalAuth } = require('../controllers/authController');
 
@@ -29,25 +30,37 @@ const { requireAuth, optionalAuth } = require('../controllers/authController');
 const followLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 70,
-  keyGenerator:(req)=>{
-    req.header("cf-connecting-ip")
-  }
+  keyGenerator:(req, res)=>{    
+    return res.locals.user._id
+  },
+  skipFailedRequests:true
 });
 
 const searchLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 50,
-  keyGenerator:(req)=>{
-    req.header("cf-connecting-ip")
-  }
+  keyGenerator:(req, res)=>{       
+    return req.header("cf-connecting-ip")
+  },
+  skipFailedRequests:true,
 }); 
 
 const avatarLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 7,
-  keyGenerator:(req)=>{
-    req.header("cf-connecting-ip")
-  }
+  keyGenerator:(req, res)=>{    
+    return res.locals.user._id
+  },
+  skipFailedRequests:true,
+});
+
+const whisperLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 10,
+  keyGenerator:(req, res)=>{
+    return res.locals.user._id
+  },
+  skipFailedRequests:true
 });
 
 
@@ -58,7 +71,7 @@ userRouter.get('/2fa/join', requireAuth, getTwoFactorAuth );
 userRouter.get('/2fa/set', requireAuth, turnOn2FA );
 userRouter.get('/2fa/unset', requireAuth, turnOff2FA );
 userRouter.post('/2fa/check', requireAuth, confirm2FA);
-
+userRouter.post('/whisper/:username', requireAuth, whisperLimiter, sendWhisper);
 //internal use only
 userRouter.get('/internal/meta/:username', retrieveUserDetails);
 userRouter.get('/internal/verify/:username', requireAuth, verifyUser);
@@ -71,14 +84,14 @@ userRouter.get('/:username/:offset/search', searchLimiter, searchUsers);
 userRouter.post('/confirm', confirmUser);
 userRouter.post(
   '/avatar',
-  avatarLimiter,
   requireAuth,
+  avatarLimiter,
   changeAvatar
 );
-userRouter.put('/', avatarLimiter, requireAuth, updateProfile);
+userRouter.put('/', requireAuth, avatarLimiter, updateProfile);
 
 userRouter.delete('/avatar', requireAuth, removeAvatar);
 
-userRouter.post('/:userId/follow', followLimiter, requireAuth, followUser);
+userRouter.post('/:userId/follow', requireAuth, followLimiter, followUser);
 
 module.exports = userRouter;
