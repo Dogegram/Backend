@@ -72,6 +72,10 @@ module.exports.createTipsSession = async (req, res, next) => {
   const tipuser = await User.findOne({ username: username})
   console.log(tipuser)
 
+  if(!tipuser.payment_enabled){
+    return res.status(400).send({ error: 'user has not enabled payments'})
+  }
+
   if(!tipuser){
     return res.status(400).send({ error: 'user not found, wtf are you doing?!?'})
   }
