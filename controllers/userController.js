@@ -82,9 +82,9 @@ module.exports.retrieveUser = async (req, res, next) => {
   try {
     const user = await User.findOne(
       { username },
-      'username fullName avatar bio bookmarks fullName _id website verified youtuber ytlink'
+      'username fullName avatar bio banned fullName _id website verified youtuber ytlink stripe_account_id creator_payout_enabled'
     );
-    if (!user) {
+    if (!user || user.banned) {
       return res
         .status(404)
         .send({ error: 'Could not find a user with that username.' });
@@ -157,22 +157,25 @@ module.exports.retrieveUser = async (req, res, next) => {
         },
       },
     ]);
+    console.log(user)
 
-    var followersProjectObj = { count: { $size:"$followers" },  isFollowing: {$in: [requestingUser._id, "$followers"]} };
-    //if(requestingUser && requestingUser._id.toString() != user._id.toString()){
-      //followersProjectObj.isFollowing = { $in: [requestingUser._id, "$followers"] };
-    //}
+    var followersProjectObj = { count: { $size:"$followers" }, };
+    if(requestingUser && requestingUser._id.toString() != user._id.toString()){
+      followersProjectObj.isFollowing = {$in: [requestingUser._id , "$followers"]};
+    }
     //the best way to do this, less bandwidth (somehow this is taking more time to process)
     const followersDocument = await Followers.aggregate([{ $match: { user: user._id } }, {$project: followersProjectObj},]);
-    console.log(followersDocument)
+    //console.log(followersDocument)
     const followingDocument = await Following.aggregate([{ $match: { user: user._id } }, {$project: { count: { $size:"$following" }}}])
-    console.log(followingDocument)
+    //console.log(followingDocument)
+    var isUserFollowing = false;
+    if(requestingUser && requestingUser._id.toString() != user._id.toString()){
     const userFollowingDocument = await Following.find({ user : requestingUser._id});
     console.log(userFollowingDocument)  
-    var isUserFollowing = false;
     if(userFollowingDocument[0].following.find(e => String(e.user) === String(user._id)  )!= undefined){
       isUserFollowing = true;
     }
+  }
 
     console.log(isUserFollowing)
     return res.send({

@@ -4,6 +4,7 @@ const userRouter = require('./user');
 const postRouter = require('./post');
 const paymentRouter = require('./payment');
 const commentRouter = require('./comment');
+const payoutRouter = require('./payout');
 const notificationRouter = require('./notification');
 const apiRouter = express.Router();
 const rateLimit = require('express-rate-limit');
@@ -23,5 +24,6 @@ apiRouter.use('/user', userRouter);
 apiRouter.use('/post', postRouter);
 apiRouter.use('/comment', commentRouter);
 apiRouter.use('/notification', notificationRouter);
+apiRouter.use('/payout', payoutRouter);
 
 module.exports = apiRouter;

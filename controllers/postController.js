@@ -456,7 +456,7 @@ module.exports.retrievePostFeed = async (req, res, next) => {
     ];
 
 
-    if(offset > 7){
+  /*  if(offset > 7){
       return res.status(400).send({success:false, error:"Bad Request, feed value too large"})
     }
 
@@ -469,7 +469,7 @@ module.exports.retrievePostFeed = async (req, res, next) => {
       offset -= 2
       adset= offset - 2
     }
-  }
+  }*/
 
     var posts = await Post.aggregate([
       {

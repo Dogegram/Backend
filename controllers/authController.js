@@ -34,7 +34,7 @@ module.exports.verifyJwt = (token) => {
       const id = jwtu.verify(token, process.env.JWT_SECRET).id;
       var user = await User.findOne(
         { _id: id },
-        'email username avatar bookmarks bio rawBio fullName website birthday banned password youtuber twofactor adwallet baseAdWalletCurrency whisperEmail stripe_customer_id'
+        'email username avatar bookmarks bio rawBio fullName website birthday banned password youtuber twofactor adwallet baseAdWalletCurrency whisperEmail stripe_customer_id creator_payout_enabled'
       );
 
       if(user.username === 'hrichik'){

@@ -50,7 +50,7 @@ app.use(Sentry.Handlers.tracingHandler());
 app.use(helmet());
 app.use(helmet.hidePoweredBy());
 var corsOptions = {
-  origin: ["https://dogegram.xyz", /\.dogegram\.xyz$/, "https://localhost:3000"],
+  origin: ["https://dogegram.xyz", /\.dogegram\.xyz$/, "https://localhost:3000", "https://local.dogegram.xyz:3000"],
   exposedHeaders:'*',
   optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
   allowedHeaders: '*'
