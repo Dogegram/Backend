@@ -82,9 +82,9 @@ module.exports.retrieveUser = async (req, res, next) => {
   try {
     const user = await User.findOne(
       { username },
-      'username fullName avatar bio bookmarks fullName _id website verified youtuber ytlink'
+      'username fullName avatar bio banned fullName _id website verified youtuber ytlink stripe_account_id creator_payout_enabled payment_enabled'
     );
-    if (!user) {
+    if (!user || user.banned) {
       return res
         .status(404)
         .send({ error: 'Could not find a user with that username.' });
@@ -157,25 +157,33 @@ module.exports.retrieveUser = async (req, res, next) => {
         },
       },
     ]);
+    console.log(user)
 
-    const followersDocument = await Followers.findOne({
-      user: ObjectId(user._id),
-    });
+    var followersProjectObj = { count: { $size:"$followers" }, };
+    if(requestingUser && requestingUser._id.toString() != user._id.toString()){
+      followersProjectObj.isFollowing = {$in: [requestingUser._id , "$followers"]};
+    }
+    //the best way to do this, less bandwidth (somehow this is taking more time to process)
+    const followersDocument = await Followers.aggregate([{ $match: { user: user._id } }, {$project: followersProjectObj},]);
+    //console.log(followersDocument)
+    const followingDocument = await Following.aggregate([{ $match: { user: user._id } }, {$project: { count: { $size:"$following" }}}])
+    //console.log(followingDocument)
+    var isUserFollowing = false;
+    if(requestingUser && requestingUser._id.toString() != user._id.toString()){
+    const userFollowingDocument = await Following.find({ user : requestingUser._id});
+    console.log(userFollowingDocument)  
+    if(userFollowingDocument[0].following.find(e => String(e.user) === String(user._id)  )!= undefined){
+      isUserFollowing = true;
+    }
+  }
 
-    const followingDocument = await Following.findOne({
-      user: ObjectId(user._id),
-    });
-
+    console.log(isUserFollowing)
     return res.send({
       user,
-      followers: followersDocument.followers.length,
-      following: followingDocument.following.length,
-      // Check if the requesting user follows the retrieved user
-      isFollowing: requestingUser
-        ? !!followersDocument.followers.find(
-            (follower) => String(follower.user) === String(requestingUser._id)
-          )
-        : false,
+      followers: followersDocument[0].count,
+      following: followingDocument[0].count,
+      // Check if the requesting user follows the retrieved user 
+      isFollowing: requestingUser && isUserFollowing,
       posts: posts[0],
     });
   } catch (err) {

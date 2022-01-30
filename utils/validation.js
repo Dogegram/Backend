@@ -47,7 +47,7 @@ if(error === 0 && errorc === 0){
    }
 
    //stage 4 blacklist checking
-   const blacklist = ['pussport.com']
+   const blacklist = ['pussport.com', 'qq.com']
    if(blacklist.includes(email.split('@')[1])){
     return 'Current email address has been blacklisted.'
    }

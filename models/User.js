@@ -56,22 +56,8 @@ const UserSchema = new Schema({
     type: String,
     maxlength: 200,
   },
-  bookmarks: [
-    {
-      post: {
-        type: Schema.ObjectId,
-        ref: 'Post',
-      },
-    },
-  ],
-  countryblocks: [
-    {
-      type: String,
-    },
-  ],
-    private: {
+  private: {
     type: Boolean,
-    default: false,
   },
   verified: {
     type: Boolean,
@@ -113,6 +99,21 @@ const UserSchema = new Schema({
   },
   whisperEmail:{
     type: Boolean
+  },
+  stripe_customer_id:{
+    type: String
+  },
+  creator_payout_enabled:{
+    type: Boolean
+  },
+  stripe_account_id:{
+    type: String,
+  },
+  stripe_payment_fee_percent:{
+    type: Number,
+  },
+  payments_enabled:{
+    type: Boolean,
   },
 });
 
