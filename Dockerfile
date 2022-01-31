@@ -1,5 +1,7 @@
 FROM node:14
 
+ARG DOPPLER_TOKEN=${DOPPLER_TOKEN}
+
 WORKDIR /home/backend
 
 COPY . .
