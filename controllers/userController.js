@@ -82,7 +82,7 @@ module.exports.retrieveUser = async (req, res, next) => {
   try {
     const user = await User.findOne(
       { username },
-      'username fullName avatar bio banned fullName _id website verified youtuber ytlink stripe_account_id creator_payout_enabled payment_enabled'
+      'username fullName avatar bio banned fullName _id website verified youtuber ytlink stripe_account_id creator_payout_enabled payments_enabled'
     );
     if (!user || user.banned) {
       return res
