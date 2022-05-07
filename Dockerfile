@@ -10,6 +10,6 @@ RUN (curl -Ls https://cli.doppler.com/install.sh || wget -qO- https://cli.dopple
 
 RUN npm install 
 
-EXPOSE $PORT
+EXPOSE 5000
 
 CMD ["doppler", "run", "--", "npm", "start"]
