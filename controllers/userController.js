@@ -22,9 +22,12 @@ var xss = require("xss");
 const fetch = require("node-fetch")
 const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
-const {sendVerificationBadgeEmail, sendWhisperEmail} = require('../utils/controllerUtils');
+const { sendVerificationBadgeEmail, sendWhisperEmail } = require('../utils/controllerUtils');
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
+const { scanNSFW, checkText } = require('./helpers/tensorflow')
+const { compress } = require('./helpers/compress')
+const { upload } = require('./helpers/upload')
 
 const { customAlphabet } = require('nanoid');
 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -38,34 +41,8 @@ const algorithm = 'aes-256-ctr';
 const secretKey = process.env.ENC_KEY;
 
 
-const minioClient = new Minio.Client({
-	endPoint: "s3.amazonaws.com",
-	accessKey: process.env.IAM_USER_KEY,
-	secretKey: process.env.IAM_USER_SECRET,
-	useSSL: false, 
-});
+const s3Bucket = process.env.S3_BUCKET;
 
-var model = null;
-
-const load_model = async () => {
-  console.time("model.user.load")
-  model = await nsfw.load()
-  console.timeEnd("model.user.load")
-}
-
-load_model();
-
-
-function getExtension(path) {
-  var basename = path.split(/[\\/]/).pop(),  // extract file name from full path ...
-                                             // (supports `\\` and `/` separators)
-      pos = basename.lastIndexOf(".");       // get last position of `.`
-
-  if (basename === "" || pos < 1)            // if file name is empty or ...
-      return "";                             //  `.` not found (-1) or comes first (0)
-
-  return basename.slice(pos + 1);            // extract extension ignoring `.`
-}
 
 const {
   validateEmail,
@@ -159,23 +136,23 @@ module.exports.retrieveUser = async (req, res, next) => {
     ]);
     console.log(user)
 
-    var followersProjectObj = { count: { $size:"$followers" }, };
-    if(requestingUser && requestingUser._id.toString() != user._id.toString()){
-      followersProjectObj.isFollowing = {$in: [requestingUser._id , "$followers"]};
+    var followersProjectObj = { count: { $size: "$followers" }, };
+    if (requestingUser && requestingUser._id.toString() != user._id.toString()) {
+      followersProjectObj.isFollowing = { $in: [requestingUser._id, "$followers"] };
     }
     //the best way to do this, less bandwidth (somehow this is taking more time to process)
-    const followersDocument = await Followers.aggregate([{ $match: { user: user._id } }, {$project: followersProjectObj},]);
+    const followersDocument = await Followers.aggregate([{ $match: { user: user._id } }, { $project: followersProjectObj },]);
     //console.log(followersDocument)
-    const followingDocument = await Following.aggregate([{ $match: { user: user._id } }, {$project: { count: { $size:"$following" }}}])
+    const followingDocument = await Following.aggregate([{ $match: { user: user._id } }, { $project: { count: { $size: "$following" } } }])
     //console.log(followingDocument)
     var isUserFollowing = false;
-    if(requestingUser && requestingUser._id.toString() != user._id.toString()){
-    const userFollowingDocument = await Following.find({ user : requestingUser._id});
-    console.log(userFollowingDocument)  
-    if(userFollowingDocument[0].following.find(e => String(e.user) === String(user._id)  )!= undefined){
-      isUserFollowing = true;
+    if (requestingUser && requestingUser._id.toString() != user._id.toString()) {
+      const userFollowingDocument = await Following.find({ user: requestingUser._id });
+      console.log(userFollowingDocument)
+      if (userFollowingDocument[0].following.find(e => String(e.user) === String(user._id)) != undefined) {
+        isUserFollowing = true;
+      }
     }
-  }
 
     console.log(isUserFollowing)
     return res.send({
@@ -217,12 +194,12 @@ module.exports.sendWhisper = async (req, res, next) => {
   const notification = new Notification({
     sender: user._id,
     receiver: userToSendTo._id,
-    notificationData:{ message: message },
+    notificationData: { message: message },
     notificationType: 'whisper',
   });
   await notification.save();
-  if(userToSendTo.whisperEmail){
-  await sendWhisperEmail( user.username, userToSendTo.email, message);
+  if (userToSendTo.whisperEmail) {
+    await sendWhisperEmail(user.username, userToSendTo.email, message);
   }
   res.send({ message: 'Shh, Whisper sent!' });
 }
@@ -230,42 +207,42 @@ module.exports.sendWhisper = async (req, res, next) => {
 module.exports.creatorConnectJoin = async (req, res, next) => {
   const { atoken } = req.body;
   const requestingUser = res.locals.user;
-const username = requestingUser.username
-  try{
-    //@me TODO: change this with key from env process.env.YOUTUBE_DATA_KEY (and you forgot damm it)
-  var request = await fetch(`https://www.googleapis.com/youtube/v3/channels?mine=true&part=statistics&access_token=${atoken}&key=${process.env.YOUTUBE_DATA_KEY}`);
-  var response = await request.json()
-  var cdata = response.items[0]
-  if(!cdata.statistics.hiddenSubscriberCount){
-  var subCount = cdata.statistics.subscriberCount;
-  var cid = cdata.id;
-  if(subCount>100){
-    console.log("here too?")
-    const userCreatorUpdate = await User.updateOne({
-      username: username 
-     },
-     {
-        $set: { youtuber : true, ytlink:`https://www.youtube.com/channel/${cid}` } 
-   });
+  const username = requestingUser.username
+  try {
+    var request = await fetch(`https://www.googleapis.com/youtube/v3/channels?mine=true&part=statistics&access_token=${atoken}&key=${process.env.YOUTUBE_DATA_KEY}`);
+    var response = await request.json()
+    var cdata = response.items[0]
+    if (!cdata.statistics.hiddenSubscriberCount) {
+      var subCount = cdata.statistics.subscriberCount;
+      var cid = cdata.id;
+      if (subCount > 100) {
+        console.log("here too?")
+        const userCreatorUpdate = await User.updateOne({
+          username: username
+        },
+          {
+            $set: { youtuber: true, ytlink: `https://www.youtube.com/channel/${cid}` }
+          });
 
-   console.log(userCreatorUpdate)
-   if (!userCreatorUpdate.acknowledged) {
-     if (!userCreatorUpdate.ok) {
-       return res.status(500).send({ error: 'Could not give User Creator badge.' });
-   }}
+        console.log(userCreatorUpdate)
+        if (!userCreatorUpdate.acknowledged) {
+          if (!userCreatorUpdate.ok) {
+            return res.status(500).send({ error: 'Could not give User Creator badge.' });
+          }
+        }
 
-   return res.send({ success: true, message: "Congratulations! You have made it here, you are now a creator connect member. Refresh this page to see the updated magic!" });
-  } else {
-    return res.status(400).send({ success: false, message: "Sorry, but you have less than 100 subscribers :(" })
-  }
-} else {
-  
-  return res.status(400).send({ success: false, message: "Your subscriber count was hidden thus we can't verify this request. Please contact support at creatorsupport@dogegram.xyz" })
-}
-  } catch(err){
+        return res.send({ success: true, message: "Congratulations! You have made it here, you are now a creator connect member. Refresh this page to see the updated magic!" });
+      } else {
+        return res.status(400).send({ success: false, message: "Sorry, but you have less than 100 subscribers :(" })
+      }
+    } else {
+
+      return res.status(400).send({ success: false, message: "Your subscriber count was hidden thus we can't verify this request. Please contact support at creatorsupport@dogegram.xyz" })
+    }
+  } catch (err) {
     return res.status(500).send({ success: false, message: err.message })
   }
-   res.status(500).send({ success: false, message: "Ah crap, some bug hit us" })
+  res.status(500).send({ success: false, message: "Ah crap, some bug hit us" })
 
 }
 
@@ -358,21 +335,21 @@ module.exports.verifyUser = async (req, res, next) => {
     const user = await User.findOne(
       { username: username },
     );
-    if(!requestingUser.admin) return res.status(401).send({ error: 'Not Authorized' })
+    if (!requestingUser.admin) return res.status(401).send({ error: 'Not Authorized' })
     if (!user) {
       return res
         .status(404)
         .send({ error: 'Could not find a user with that username.' });
     }
 
-    
+
 
     const userVerifyUpdate = await User.updateOne({
-       username: username 
-      },
+      username: username
+    },
       {
-         $set: { verified : true } 
-    });
+        $set: { verified: true }
+      });
 
     console.log(userVerifyUpdate)
     if (!userVerifyUpdate.acknowledged) {
@@ -382,62 +359,23 @@ module.exports.verifyUser = async (req, res, next) => {
       // The above query did not modify anything meaning that the user has already bookmarked the post
       // Remove the bookmark instead
       const userRemoveVerifyUpdate = await User.updateOne({
-       username: username 
+        username: username
       },
-      {
-         $set: { verified : undefined } 
-    });
+        {
+          $set: { verified: undefined }
+        });
       if (!userRemoveVerifyUpdate.acknowledge) {
         return res.status(500).send({ error: 'Could not remove User Verification badge.' });
       }
       return res.send({ success: true, operation: 'un-verify' });
     }
-    await sendVerificationBadgeEmail(username,user.email)
+    await sendVerificationBadgeEmail(username, user.email)
     return res.send({ success: true, operation: 'verify' });
   } catch (err) {
     next(err);
   }
 };
 
-/*module.exports.bookmarkPost = async (req, res, next) => {
-  const { postId } = req.params;
-  const user = res.locals.user;
-
-  try {
-    const post = await Post.findById(postId);
-    if (!post) {
-      return res
-        .status(404)
-        .send({ error: 'Could not find a post with that id.' });
-    }
-
-    const userBookmarkUpdate = await User.updateOne(
-      {
-        _id: user._id,
-        'bookmarks.post': { $ne: postId },
-      },
-      { $push: { bookmarks: { post: postId } } }
-    );
-    if (!userBookmarkUpdate.nModified) {
-      if (!userBookmarkUpdate.ok) {
-        return res.status(500).send({ error: 'Could not bookmark the post.' });
-      }
-      // The above query did not modify anything meaning that the user has already bookmarked the post
-      // Remove the bookmark instead
-      const userRemoveBookmarkUpdate = await User.updateOne(
-        { _id: user._id },
-        { $pull: { bookmarks: { post: postId } } }
-      );
-      if (!userRemoveBookmarkUpdate.nModified) {
-        return res.status(500).send({ error: 'Could not bookmark the post.' });
-      }
-      return res.send({ success: true, operation: 'remove' });
-    }
-    return res.send({ success: true, operation: 'add' });
-  } catch (err) {
-    next(err);
-  }
-};*/
 
 module.exports.followUser = async (req, res, next) => {
   const { userId } = req.params;
@@ -687,129 +625,129 @@ module.exports.searchUsers = async (req, res, next) => {
   }
 };
 
-module.exports.getTwoFactorAuth = async (req, res, next)=>{
+module.exports.getTwoFactorAuth = async (req, res, next) => {
   const user = res.locals.user;
 
-  if(user.twofactor){
-    return res.status(401).send({done:false, message: 'Turn off 2FA to regenrate codes!'})
+  if (user.twofactor) {
+    return res.status(401).send({ done: false, message: 'Turn off 2FA to regenrate codes!' })
   }
 
   const newSecret = twofactor.generateSecret({ name: "Dogegram", account: user.email });
 
   console.log(newSecret)
-/*
-  try{
-
-  const userDocument = await User.findOne({ _id: user._id });
-
-  user
-
-}catch(err){
- throw new Error(err)       
-}
-*/  
-
-/**
- * Genrates 2FA backup codes
- * @function genrateBackupCodes2FA
- * @param {number} howMany The amount of codes you want
- * @returns {Object} An Object containg a Array of codes & their interpretation in NATO phonetics
- */
-
-const genrateBackupCodes2FA = (howMany) => {
-
+  /*
+    try{
   
-  let current = 1
-  let codes = []
-
-  while(current<=howMany){
-    console.log(current)
-
-  let code = nanoid()
-  codes.push(code)
-  current +=1
-  }
-  let natocodes = []
-  codes.forEach((data, index)=>{
-    let natocode = encodify.toNATOCode(data)
-    natocodes.push(natocode)
-  })
-
-  let obj = {
-    codes:codes,
-    nato:natocodes
-  }
-
-  return obj
-
-}
+    const userDocument = await User.findOne({ _id: user._id });
   
- var recoveryCodes = genrateBackupCodes2FA(3)
+    user
+  
+  }catch(err){
+   throw new Error(err)       
+  }
+  */
 
- console.log(recoveryCodes) 
+  /**
+   * Genrates 2FA backup codes
+   * @function genrateBackupCodes2FA
+   * @param {number} howMany The amount of codes you want
+   * @returns {Object} An Object containg a Array of codes & their interpretation in NATO phonetics
+   */
 
- try{
+  const genrateBackupCodes2FA = (howMany) => {
 
-  var userdoc = await User.findOne({ _id: user._id })
-  userdoc.recovery2fa = recoveryCodes.codes
-  userdoc.secret2fa = newSecret.secret
-  await userdoc.save()
-} catch(err){
-  throw new Error(err)
+
+    let current = 1
+    let codes = []
+
+    while (current <= howMany) {
+      console.log(current)
+
+      let code = nanoid()
+      codes.push(code)
+      current += 1
+    }
+    let natocodes = []
+    codes.forEach((data, index) => {
+      let natocode = encodify.toNATOCode(data)
+      natocodes.push(natocode)
+    })
+
+    let obj = {
+      codes: codes,
+      nato: natocodes
+    }
+
+    return obj
+
+  }
+
+  var recoveryCodes = genrateBackupCodes2FA(3)
+
+  console.log(recoveryCodes)
+
+  try {
+
+    var userdoc = await User.findOne({ _id: user._id })
+    userdoc.recovery2fa = recoveryCodes.codes
+    userdoc.secret2fa = newSecret.secret
+    await userdoc.save()
+  } catch (err) {
+    throw new Error(err)
+  }
+  res.status(200).send({ done: true, secretKey: newSecret.secret, qr: newSecret.qr, recovery: recoveryCodes })
+
 }
-  res.status(200).send({done:true, secretKey: newSecret.secret, qr: newSecret.qr, recovery:recoveryCodes})
-
-} 
 
 module.exports.confirm2FA = async (req, res, next) => {
   const { twofactorCode } = req.body;
   const user = res.locals.user;
 
-  const userdoc = await User.findOne({ _id: user._id }, { secret2fa:1,  _id:0 })
+  const userdoc = await User.findOne({ _id: user._id }, { secret2fa: 1, _id: 0 })
   console.log(userdoc)
 
 
   const isright = twofactor.verifyToken(userdoc.secret2fa, twofactorCode);
 
-  if(isright === null){
-    return res.status(401).send({done:false, message:'the code given is incorrect. please try again'})
-  } else if(isright.delta === 0){
-    return res.status(200).send({done:true, message:'the code given is correct. great!'})
+  if (isright === null) {
+    return res.status(401).send({ done: false, message: 'the code given is incorrect. please try again' })
+  } else if (isright.delta === 0) {
+    return res.status(200).send({ done: true, message: 'the code given is correct. great!' })
   } else {
-    return res.status(400).send({done:false, message:'the code given is late/early. please try again'})
+    return res.status(400).send({ done: false, message: 'the code given is late/early. please try again' })
   }
-  return res.status(500).send({done:false, message:'you should not ever reach here, if you do then '})
+  return res.status(500).send({ done: false, message: 'you should not ever reach here, if you do then ' })
 }
 
 module.exports.turnOn2FA = async (req, res, next) => {
   const user = res.locals.user;
-  if(user.twofactor){
-    return res.status(200).send({done:false, message:"you have 2fa turned on already!?!?!"})
+  if (user.twofactor) {
+    return res.status(200).send({ done: false, message: "you have 2fa turned on already!?!?!" })
   }
-  try{
+  try {
     var userdoc = await User.findOne({ _id: user._id })
     userdoc.twofactor = true
     userdoc.save()
-  } catch(err){
+  } catch (err) {
     throw new Error(err)
   }
-  res.status(200).send({done:true, message:"2FA set! hopefully you have a good time :)"})
+  res.status(200).send({ done: true, message: "2FA set! hopefully you have a good time :)" })
 }
 
 module.exports.turnOff2FA = async (req, res, next) => {
   const user = res.locals.user;
-  if(user.twofactor){
-  try{
-    var userdoc = await User.findOne({ _id: user._id })
-    userdoc.twofactor = false
-    userdoc.save()
-  } catch(err){
-    throw new Error(err)
+  if (user.twofactor) {
+    try {
+      var userdoc = await User.findOne({ _id: user._id })
+      userdoc.twofactor = false
+      userdoc.save()
+    } catch (err) {
+      throw new Error(err)
+    }
+  } else {
+    return res.status(400).send({ done: false, message: "you have 2fa not set already?!?!?" })
   }
-} else {
-  return res.status(400).send({done:false, message:"you have 2fa not set already?!?!?"})
-}
-  return res.status(200).send({done:true, message:"2FA unset! hopefully you have a good time (same as you started) :)"})
+  return res.status(200).send({ done: true, message: "2FA unset! hopefully you have a good time (same as you started) :)" })
 }
 
 module.exports.confirmUser = async (req, res, next) => {
@@ -828,19 +766,19 @@ module.exports.confirmUser = async (req, res, next) => {
 
     console.log(dtoken);
 
-      username= dtoken.username;
-      fullName= dtoken.fullName;
-      email= dtoken.email;
-      pronoun= dtoken.pronoun;
-      birthday= new Date(dtoken.birthday);
-      password= dtoken.password;
+    username = dtoken.username;
+    fullName = dtoken.fullName;
+    email = dtoken.email;
+    pronoun = dtoken.pronoun;
+    birthday = new Date(dtoken.birthday);
+    password = dtoken.password;
 
-     
+
     const userd = new User({ username, fullName, pronoun, birthday, email, password });
 
     await userd.save();
 
-    return res.send({success: true});
+    return res.send({ success: true });
 
   } catch (err) {
     console.log(err)
@@ -851,74 +789,57 @@ module.exports.confirmUser = async (req, res, next) => {
 module.exports.changeAvatar = async (req, res, next) => {
   const user = res.locals.user;
 
- console.log(user)
+  console.log(user)
 
- const form = formidable({ multiples: true });
- form.parse(req, async (err, fields, files) => {
- console.log(files)
-  if (!files) {
-    return res
-      .status(400)
-      .send({ error: 'Please provide the image to upload.' });
-  }
-
-
-
-  try {
-    var minioBucketName = process.env.S3_BUCKET;
-    const myfile = files.image;
-    
-    var fileStream = fs.createReadStream(myfile.path);
-    var filename = myfile.name;
-    console.log(filename);
-    var tag = 'storage/' +  uuidv4(); 
-
-    const imagecache = fs.readFileSync(myfile.path)
-   const image = await tf.node.decodeImage(imagecache,3)
-   const predictions = await model.classify(image)
-   image.dispose()
-
-   if(predictions[0].probability < 0.3){
-    console.log(predictions)
-    return res.status(401).send({success:false, message:"This file has been detected NSFW by our systems, please don't post these things here"});
+  const form = formidable({ multiples: true });
+  form.parse(req, async (err, fields, files) => {
+    console.log(files)
+    if (!files) {
+      return res
+        .status(400)
+        .send({ error: 'Please provide the image to upload.' });
     }
 
-    var fileStat = fs.stat(myfile.path, function(err2, stats) {
-        if (err2) {
-            return console.log(err)
+
+
+    try {
+      const myfile = files.image;
+      fs.readFile(myfile.path, async (err, imagebuf) => {
+        var nsfw = await scanNSFW(imagebuf)
+
+        if (nsfw) {
+          return res.status(401).send({ success: false, message: "This file has been detected NSFW by our systems, please don't post these things here" });
         }
-        var extension = getExtension(filename);
-        var mimetype = mime.lookup(extension);
-        var metaData = {
-            'Content-Type': mimetype,
-            'Cache-Control': 23949234,
+
+        var compressedImage = await compress(imagebuf, 80)
+
+        var tag = crypto.createHash('sha1').update(compressedImage).digest("hex");
+        const s3error = (err) => {throw new Error('err with s3 upload', err)}
+        const params = {
+          Bucket: s3Bucket,
+          Key: tag,
+          Body: compressedImage,
+          ACL: 'public-read',
+          CacheControl: '7776000000',
+          ContentType: 'image/webp',
+          Metadata: {
             'x-amz-acl': 'public-read'
-        }     
-        minioClient.putObject(minioBucketName, tag, fileStream, myfile.size , metaData, async function(err3, etag) {
-          if (err3) {
-               res.status(500).send(err3);
           }
-          var cdnURL = `https://${process.env.S3_BUCKET}/` + tag
-
-
-    fs.unlinkSync(myfile.path);
-
-    const avatarUpdate = await User.updateOne(
-      { _id: user._id },
-      { avatar: cdnURL }
-    );
-
-    if (!avatarUpdate.acknowledged) {
-      throw new Error('Could not update user avatar.');
+        };
+        await upload(params, s3error)
+        const avatarUpdate = await User.updateOne(
+          { _id: user._id },
+          { $set: { avatar: tag } }
+        );
+        if (!avatarUpdate.acknowledged) {
+          next(err);
+        }
+        return res.status(204).send();
+      });
+    } catch (err) {
+      next(err);
     }
-
-    return res.send({ avatar: cdnURL });
-  })
-})
-  } catch (err) {
-    next(err);
-  }
-});
+  });
 };
 
 module.exports.removeAvatar = async (req, res, next) => {
@@ -947,11 +868,11 @@ module.exports.updateProfile = async (req, res, next) => {
     const userDocument = await User.findOne({ _id: user._id });
 
 
-    if(fullName === userDocument.fullName && username === userDocument.username && website === userDocument.website && bio === userDocument.rawBio && whisperEmail === userDocument.whisperEmail){
+    if (fullName === userDocument.fullName && username === userDocument.username && website === userDocument.website && bio === userDocument.rawBio && whisperEmail === userDocument.whisperEmail) {
       return res.status(400).send({ error: "At least change some things, add something new or fix any typo. Do something." });
     }
 
-    if(typeof whisperEmail != 'boolean'){
+    if (typeof whisperEmail != 'boolean') {
       return res.status(400).send({ error: "Don't try to pwn us you idiot, error: whisper email should be an boolean" });
     }
 
@@ -976,7 +897,7 @@ module.exports.updateProfile = async (req, res, next) => {
         updatedFields.username = username;
       }
     }
-      console.log(website)
+    console.log(website)
 
     if (website) {
       const websiteError = validateWebsite(website);
@@ -990,12 +911,12 @@ module.exports.updateProfile = async (req, res, next) => {
       }
     } else {
       userDocument.website = undefined;
-      updatedFields.website = undefined; 
+      updatedFields.website = undefined;
     }
 
     if (bio) {
       const bioError = validateBio(bio);
-    
+
       if (bioError) return res.status(400).send({ error: bioError });
 
       const biohtml = linkifyHtml(bio, {
@@ -1013,12 +934,12 @@ module.exports.updateProfile = async (req, res, next) => {
           },
         }
       });
-      
+
 
       noxsshtml = DOMPurify.sanitize(biohtml);
 
       html = parse(biohtml);
-
+      //hacky solution to add the target to the links
       withtarget = noxsshtml.replace(/id="/g, 'target="')
 
       console.log(withtarget)
@@ -1034,7 +955,7 @@ module.exports.updateProfile = async (req, res, next) => {
       updatedFields.rawBio = undefined;
     }
 
-    if(whisperEmail != undefined){
+    if (whisperEmail != undefined) {
       userDocument.whisperEmail = whisperEmail;
       updatedFields.whisperEmail = whisperEmail;
     }
@@ -1070,13 +991,13 @@ module.exports.updateProfile = async (req, res, next) => {
 
     const updatedUser = await userDocument.save();
     res.send(updatedFields);
-  /*  if (email && email !== user.email) {
-      sendConfirmationEmail(
-        updatedUser.username,
-        updatedUser.email,
-        confirmationToken.token
-      );
-    }*/
+    /*  if (email && email !== user.email) {
+        sendConfirmationEmail(
+          updatedUser.username,
+          updatedUser.email,
+          confirmationToken.token
+        );
+      }*/
   } catch (err) {
     next(err);
   }
@@ -1130,12 +1051,12 @@ module.exports.retrieveSuggestedUsers = async (req, res, next) => {
           fullName: true,
           avatar: true,
           isFollowing: { $in: [user._id, '$followers.followers.user'] },
-          verified: true,
+          youtuber: true,
           posts: true,
         },
       },
       {
-        $match: { isFollowing: false, verified: true},
+        $match: { isFollowing: false },
       },
       {
         $sample: { size: max ? Number(max) : 20 },
@@ -1147,7 +1068,6 @@ module.exports.retrieveSuggestedUsers = async (req, res, next) => {
         $unset: ['isFollowing'],
       },
     ]);
-    console.log("here")
     res.send(users);
   } catch (err) {
     next(err);

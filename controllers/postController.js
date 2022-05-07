@@ -4,28 +4,17 @@ const Post = require('../models/Post');
 const PostVote = require('../models/PostVote');
 const Following = require('../models/Following');
 const Followers = require('../models/Followers');
-const User = require('../models/User');
 const Notification = require('../models/Notification');
 const socketHandler = require('../handlers/socketHandler');
-const fs = require('fs');
 const ObjectId = require('mongoose').Types.ObjectId;
 const fetch = require('node-fetch');
-var mime = require('mime-types');
-const tf = require('@tensorflow/tfjs-node');
-const nsfw = require('nsfwjs');
-const toxicity = require('@tensorflow-models/toxicity')
-const mobilenet = require('@tensorflow-models/mobilenet')
-const jwt = require('jsonwebtoken');
-const sharp = require("sharp");
 const crypto = require('crypto');
-
+const { scanNSFW, checkText } = require('./helpers/tensorflow')
+const { compress } = require('./helpers/compress')
+const { upload } = require('./helpers/upload')
 const AWS = require('aws-sdk');
 const s3Bucket = process.env.S3_BUCKET;
 
-const s3 = new AWS.S3({
-  accessKeyId: process.env.IAM_USER_KEY,
-  secretAccessKey: process.env.IAM_USER_SECRET
-});
 /*
 const redis = require("redis");
 const client = redis.createClient({url:process.env.REDIS_URL});
@@ -48,19 +37,6 @@ testredis()
 
 */
 
-var model = null;
-var textmodel = null;
-var mobnet = null;
-var innet = null;
-const load_model = async () => {
-  console.time("models.load")
-  model = await nsfw.load()
-  textmodel = await toxicity.load(0.9,['toxicity'])
-  //mobnet = await mobilenet.load({version:2, alpha:1.0});
-  console.timeEnd("models.load")
-}
-
-load_model();
 
 
 
@@ -73,7 +49,8 @@ const filters = require('../utils/filters');
 
 module.exports.createPost = async (req, res, next) => {
   const user = res.locals.user;
-  const { caption, postText, filter: filterName } = req.body; 
+  const { caption, postText, filter: filterName, image } = req.body;
+
   let post = undefined;
   const filterObject = filters.find((filter) => filter.name === filterName);
   const hashtags = [];
@@ -81,114 +58,71 @@ module.exports.createPost = async (req, res, next) => {
     if (result.type === 'hashtag') {
       hashtags.push(result.value.substring(1));
     }
-    if(result.type === 'link'){
+    if (result.type === 'link') {
 
     }
   });
 
-  if (!req.file) {
+  if (!image) {
     return res
       .status(400)
-      .send({ success:false, message: 'Please provide the image to upload.' });
+      .send({ success: false, message: 'Please provide the image to upload.' });
   }
 
 
-
   try {
-    const myfile = req.file;
+    const imagebuf = Buffer.from(image.split(';base64,').pop(), 'base64')
+    if(imagebuf.length > 3*1e+6) {
+      delete imagebuf
+      return res.status(400).send({success: false, message: 'File too big, please keep it under 3 mb'});
+    }
     
-    var fileStream = fs.createReadStream(myfile.path);
-    var filename = myfile.originalname;
-    const imagecache = fs.readFileSync(myfile.path)
+    var nsfw = await scanNSFW(imagebuf)
+    var captionCheck = await checkText(caption);
 
-
-  
-    console.time("models.classify")
-   const image = await tf.node.decodeImage(imagecache,3);
-   const predictions = await model.classify(image);
-   //const aitag = await mobnet.classify(image);
-   const captiontoxic = await textmodel.classify(caption)
-   console.timeEnd("models.classify")
-   image.dispose()
-
-   
-   var nsfw = 0
- 
-    predictions.forEach(prediction =>{
-     if(prediction.className != 'Neutral' && prediction.className != 'Drawing'&& prediction.className != 'Sexy'){
-       nsfw += prediction.probability
-     }
-    })
-
-    if(captiontoxic[0].results[0].match){
-      fs.unlinkSync(myfile.path);
-      return res.status(401).send({success:false, message:"The caption has been determined Toxic by AI (its experimental so please sorry for any inconvenience). Posting Aborted."});
-
+    if (nsfw) {
+      return res.status(401).send({ success: false, message: "This file has been detected NSFW by our systems. Posting Aborted." });
+    } else if(captionCheck){
+      return res.status(401).send({ success: false, message: "This caption is Toxic (its experimental so please sorry for any inconvenience). Posting Aborted." });
     }
-
-    if(!nsfw>0.6){
-//      console.log(predictions)
-    fs.unlinkSync(myfile.path);
-
-    return res.status(401).send({success:false, message:"This file has been detected NSFW by our systems. Posting Aborted."});
-    }
-    console.time('img.compress')
-    var compressedImage = await sharp(imagecache)
-    .webp({ quality:80, speed : 8 })
-    .toBuffer(); 
-    console.timeEnd('img.compress')
-    var tag = crypto.createHash('sha1').update(compressedImage).digest("hex"); 
+    var compressedImage = await compress(imagebuf)
+    var tag = crypto.createHash('sha1').update(compressedImage).digest("hex");
     console.log(tag)
 
-    
-  const imgsize = compressedImage.toString().length;
-  console.log(imgsize)
-  var imagebuffer = compressedImage.toString('base64');
-  var imgdata = 'data:image/avif;base64,' + imagebuffer; 
 
-  var cdnURL = `https://${process.env.S3_BUCKET}/` + tag
+    var imagebase64 = compressedImage.toString('base64');
+    var imgdata = 'data:image/webp;base64,' + imagebase64;
 
-  var reqCheckFile = await fetch(cdnURL)
-  var resCheckFile = reqCheckFile.status
-  console.log(resCheckFile)
-  
-  if(resCheckFile != 200){
-  const params = {
-    Bucket: s3Bucket,
-    Key: tag, 
-    Body: compressedImage,
-    ACL: 'public-read',
-    CacheControl:'7776000000',
-    ContentType:'image/webp',
-    Metadata :{
-      'x-amz-acl': 'public-read'
+    var cdnURL = `https://${process.env.S3_BUCKET}/` + tag
+
+    var reqCheckFile = await fetch(cdnURL)
+    var resCheckFile = reqCheckFile.status
+    console.log(resCheckFile)
+
+    const s3error = () => {throw new Error('err with s3 upload')}
+   
+
+    if (resCheckFile != 200) {
+      const params = {
+        Bucket: s3Bucket,
+        Key: tag,
+        Body: compressedImage,
+        ACL: 'public-read',
+        CacheControl: '7776000000',
+        ContentType: 'image/webp',
+        Metadata: {
+          'x-amz-acl': 'public-read'
+        }
+      };
+
+      // Uploading files to the bucket
+      const uploaded = await upload(params, s3error)
+      console.log(uploaded)
+
     }
-};
 
-// Uploading files to the bucket
-s3.putObject(params, async (err, data) => {
-    if (err) {
-        console.error(err);
-    }
-    console.log(`File uploaded successfully.`);
-  })
-}
-/*
-        var metadata = {
-            'Content-Type': 'image/avif',a
-            'Cache-Control': 23949234,
-            'x-amz-acl': 'public-read'
-        }     
-        minioClient.putObject(minioBucketName, tag, compressedImageStream, imgsize , metadata, async function(err3, etag) {
-          if (err3) {
-               res.status(500).send(err3);
-          }
-*/
-
-
-    fs.unlinkSync(myfile.path);
-    post =await Post.create({
-      image: cdnURL,
+    post = await Post.create({
+      image: tag,
       filter: filterObject ? filterObject.filter : '',
       caption,
       author: user._id,
@@ -196,7 +130,6 @@ s3.putObject(params, async (err, data) => {
       postText
     });
 
-    console.log(post)
 
     const postVote = new PostVote({
       post: post._id,
@@ -209,55 +142,54 @@ s3.putObject(params, async (err, data) => {
       comments: [],
       author: { avatar: user.avatar, username: user.username },
     }
-    console.log(sendata)
 
     sendata.image = imgdata;
-    
+
     res.status(201).send(sendata);
- // })
+    // })
 
-      if(post != undefined){
+    if (post != undefined) {
 
-  try {
-    // Updating followers feed with post
-    const followersDocument = await Followers.find({ user: user._id });
-    const followers = followersDocument[0].followers;
-    const postObject = {
-      ...post.toObject(),
-      author: { username: user.username, avatar: user.avatar },
-      commentData: { commentCount: 0, comments: [] },
-      postVotes: [],
+      try {
+        // Updating followers feed with post
+        const followersDocument = await Followers.find({ user: user._id });
+        const followers = followersDocument[0].followers;
+        const postObject = {
+          ...post.toObject(),
+          author: { username: user.username, avatar: user.avatar },
+          commentData: { commentCount: 0, comments: [] },
+          postVotes: [],
+        };
+
+       //  socketHandler.sendPost(req, postObject, user._id);
+    /*    followers.forEach((follower) => {
+          socketHandler.sendPost(
+            req,
+            // Since the post is new there is no need to look up any fields
+            postObject,
+            follower.user
+          );
+        }); */
+      } catch (err) {
+        console.log(err);
+      }
     };
-
-    // socketHandler.sendPost(req, postObject, user._id);
-    followers.forEach((follower) => {
-      socketHandler.sendPost(
-        req,
-        // Since the post is new there is no need to look up any fields
-        postObject,
-        follower.user
-      );
-    });
   } catch (err) {
-    console.log(err);
+    next(err);
   }
-};
-} catch (err) {
-  next(err);
-}
 };
 
 module.exports.retrievePostDetails = async (req, res, next) => {
   const { postId } = req.params;
-  if(postId.length != 24){
-    return res.status(400).send({ error: 'ID is invalid'})
+  if (postId.length != 24) {
+    return res.status(400).send({ error: 'ID is invalid' })
   }
   console.log(postId)
   try {
     const post = await Post.findOne(
-      { _id: ObjectId(postId) } ,
+      { _id: ObjectId(postId) },
       'caption image author'
-      ).populate('author', 'fullName username');
+    ).populate('author', 'fullName username');
     if (!post) {
       return res
         .status(404)
@@ -376,7 +308,7 @@ module.exports.votePost = async (req, res, next) => {
     console.log(postLikeUpdate)
     if (postLikeUpdate.modifiedCount === 0) {
       if (!postLikeUpdate.acknowledged) {
-        console.log('like post: ',postLikeUpdate.acknowledged)
+        console.log('like post: ', postLikeUpdate.acknowledged)
         return res.status(500).send({ error: 'Could not vote on the post. 1' });
       }
       // Nothing was modified in the previous query meaning that the user has already liked the post
@@ -386,7 +318,7 @@ module.exports.votePost = async (req, res, next) => {
         { $pull: { votes: { author: user._id } } }
       );
 
-      console.log('dislike post: ',postDislikeUpdate)
+      console.log('dislike post: ', postDislikeUpdate)
 
       if (postDislikeUpdate.modifiedCount === 0) {
         return res.status(500).send({ error: 'Could not vote on the post. 2' });
@@ -456,20 +388,20 @@ module.exports.retrievePostFeed = async (req, res, next) => {
     ];
 
 
-  /*  if(offset > 7){
-      return res.status(400).send({success:false, error:"Bad Request, feed value too large"})
-    }
-
-    if(offset != 0 && offset != undefined){
-    if(offset%6===0){
-      offset -= 1
-      adset = offset -1
-    }
-    if(offset%7==0){
-      offset -= 2
-      adset= offset - 2
-    }
-  }*/
+    /*  if(offset > 7){
+        return res.status(400).send({success:false, error:"Bad Request, feed value too large"})
+      }
+  
+      if(offset != 0 && offset != undefined){
+      if(offset%6===0){
+        offset -= 1
+        adset = offset -1
+      }
+      if(offset%7==0){
+        offset -= 2
+        adset= offset - 2
+      }
+    }*/
 
     var posts = await Post.aggregate([
       {
@@ -599,12 +531,12 @@ module.exports.retrievePostFeed = async (req, res, next) => {
       },
     ]);
 
-   // var keyword = ['dev']
+    // var keyword = ['dev']
     var adload = await Post.aggregate([
       {
         $match: {
-         // keywords: { $in : keyword } ,
-         isAd: true
+          // keywords: { $in : keyword } ,
+          isAd: true
         },
       },
       { $sort: { date: -1 } },
@@ -727,22 +659,22 @@ module.exports.retrievePostFeed = async (req, res, next) => {
         $unset: [...unwantedUserFields, 'comments', 'commentCount'],
       },
     ]);
-//   console.log(adload)
-   var newad = 2;
-  // console.log(posts.length)\
+    //   console.log(adload)
+    var newad = 2;
+    // console.log(posts.length)\
 
-  var adarr = []
+    var adarr = []
 
-  adload.forEach(async (value, index, array)=>{
-    if(posts[posts.length - 1].isAd === undefined){
-    if(!newad < 4 || !index < 1){
-      posts.splice(newad,0, value)
-      newad += 2
-    }
-  }
-  })  
-  
-  console.log(posts.length)
+    adload.forEach(async (value, index, array) => {
+      if (posts[posts.length - 1].isAd === undefined) {
+        if (!newad < 4 || !index < 1) {
+          posts.splice(newad, 0, value)
+          newad += 2
+        }
+      }
+    })
+
+    console.log(posts.length)
     return res.send(posts);
   } catch (err) {
     next(err);
@@ -789,7 +721,7 @@ module.exports.retrieveHashtagPosts = async (req, res, next) => {
     var sendposts = {
       posts: posts
     }
-    
+
     return res.send(sendposts);
   } catch (err) {
     next(err);

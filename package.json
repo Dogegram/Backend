@@ -65,7 +65,7 @@
     "node-html-parser": "^4.1.5",
     "node-telegram-bot-api": "^0.54.0",
     "nodemailer": "^6.6.4",
-    "nsfwjs": "^2.4.0",
+    "nsfwjs": "^2.4.1",
     "redis": "^3.1.2",
     "sendmail": "^1.6.1",
     "sharp": "^0.28.3",

@@ -35,12 +35,6 @@ const PostSchema = new Schema({
     type: Schema.ObjectId,
     ref: 'User',
   },
-  isAd:{
-    type: Boolean
-  },
-  bidPerDay:{
-    type:Number
-  },
   views:{
     type:Number
   }

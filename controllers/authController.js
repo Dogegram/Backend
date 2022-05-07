@@ -3,8 +3,8 @@ const jwtu = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 const axios = require('axios');
-const NodeCache = require( "node-cache" );
-const myCache = new NodeCache({stdTTL: 10800});
+const NodeCache = require("node-cache");
+const myCache = new NodeCache({ stdTTL: 10800 });
 const Sentry = require('@sentry/node');
 const { htmlToText } = require('html-to-text');
 var scrypt;
@@ -37,11 +37,11 @@ module.exports.verifyJwt = (token) => {
         'email username avatar bookmarks bio rawBio fullName website birthday banned password youtuber twofactor adwallet baseAdWalletCurrency whisperEmail stripe_customer_id creator_payout_enabled'
       );
 
-      if(user.username === 'hrichik'){
+      if (user.username === 'hrichik') {
         user.admin = true;
-      } 
+      }
 
-      if(user.banned){
+      if (user.banned) {
         reject('Not authorized.');
       }
       if (user) {
@@ -93,14 +93,14 @@ module.exports.loginAuthentication = async (req, res, next) => {
       user = await this.verifyJwt(authorization);
 
       tokenpass = jwtu.verify(authorization, process.env.JWT_SECRET).password;
-      
-        if (tokenpass != user.password) {
-          return res.status(401).send({
-            error:
-              'The credentials you provided are incorrect, please try again.',
-          })
-        }
-      
+
+      if (tokenpass != user.password) {
+        return res.status(401).send({
+          error:
+            'The credentials you provided are incorrect, please try again.',
+        })
+      }
+
       return res.send({
         user,
         token: authorization,
@@ -116,7 +116,7 @@ module.exports.loginAuthentication = async (req, res, next) => {
       .send({ error: 'Please provide both a username/email and a password.' });
   }
 
-  
+
 
   try {
     const user = await User.findOne({
@@ -130,7 +130,7 @@ module.exports.loginAuthentication = async (req, res, next) => {
 
     scrypt(password, process.env.PASS_SALT, 64, (err, derivedKey) => {
       if (err) throw err;
-  var hashedkey = derivedKey.toString('hex');
+      var hashedkey = derivedKey.toString('hex');
 
       if (hashedkey != user.password) {
         return res.status(401).send({
@@ -138,37 +138,37 @@ module.exports.loginAuthentication = async (req, res, next) => {
             'The credentials you provided are incorrect, please try again.',
         });
       }
-      if(user.twofactor && !twofactorCode){
+      if (user.twofactor && !twofactorCode) {
         return res.status(401).send({
           error: '2FA',
         });
       }
 
-      if(user.twofactor){
+      if (user.twofactor) {
 
-      console.log(user.recovery2fa.includes(twofactorCode))
-
-      if(!user.recovery2fa.includes(twofactorCode)){
         console.log(user.recovery2fa.includes(twofactorCode))
 
-      var isright = twofactor.verifyToken(user.secret2fa, twofactorCode);
-      console.log(isright)
-  
-      if(isright === null){
-        return res.status(401).send({done:false, error:'the code given is incorrect. please try again'})
-      } else if(isright.delta != 0){
-        return res.status(400).send({done:false, error:'the code given is late/early. please try again'})
+        if (!user.recovery2fa.includes(twofactorCode)) {
+          console.log(user.recovery2fa.includes(twofactorCode))
+
+          var isright = twofactor.verifyToken(user.secret2fa, twofactorCode);
+          console.log(isright)
+
+          if (isright === null) {
+            return res.status(401).send({ done: false, error: 'the code given is incorrect. please try again' })
+          } else if (isright.delta != 0) {
+            return res.status(400).send({ done: false, error: 'the code given is late/early. please try again' })
+          }
+        } else {
+          var revcode = user.recovery2fa.indexOf(twofactorCode)
+          var rfrevcode = user.recovery2fa.splice(revcode, 1)[0]
+          if (rfrevcode === twofactorCode) {
+            user.save()
+          }
+        }
       }
-    } else {
-      var revcode = user.recovery2fa.indexOf(twofactorCode)
-      var rfrevcode = user.recovery2fa.splice(revcode,1)[0]
-      if(rfrevcode === twofactorCode){
-        user.save()
-      }
-    }
-}
       if (user.banned) {
-      let banreason = user.banReason;
+        let banreason = user.banReason;
         return res.status(401).send({
           error: `User banned, Reason: ${banreason}`,
         });
@@ -198,14 +198,14 @@ module.exports.register = async (req, res, next) => {
   let user = null;
   let confirmationToken = null;
 
-  
+
   const birthdayError = validateBirthday(birthday);
   if (birthdayError) return res.status(400).send({ error: birthdayError });
 
- // NOW OPEN BETA, YAY!!! fix this !process.env.SIGNUP_OPEN ||
- if(!process.env.SIGNUP_OPEN ){
-  return res.status(400).send({ error: "Sorry, Signups are closed" });
-}
+  // NOW OPEN BETA, YAY!!! fix this !process.env.SIGNUP_OPEN ||
+  if (!process.env.SIGNUP_OPEN) {
+    return res.status(400).send({ error: "Sorry, Signups are closed" });
+  }
   const usernameError = validateUsername(username);
   if (usernameError) return res.status(400).send({ error: usernameError });
 
@@ -229,60 +229,60 @@ module.exports.register = async (req, res, next) => {
     userpasswordenc = null;
 
     scrypt(password, process.env.PASS_SALT, 64, async (err, derivedKey) => {
-     userpasswordenc = derivedKey.toString('hex');
-    
-    
-     user = {
-      username: username,
-      fullName: fullName,
-      email: email,
-      pronoun:pronoun,
-      birthday: birthday,
-      password: userpasswordenc
-     }
-
-     trygetuseremailsame = await User.findOne({
-      email:email
-    })
-    
-    trygetusernamesame = await User.findOne({
-      username:username
-    })
-
-    if(trygetusernamesame || trygetuseremailsame){
-      return res.status(400).send({error: 'User Email/username already exists.'})
-    }
-
-     confirmationToken = jwtu.sign(user, process.env.JWT_SECRET, { expiresIn: '3h' });
-    console.log(confirmationToken)
-
-     // bypass sending protections for development
-    // await sendConfirmationEmail(user.username, user.email, confirmationToken);
-
-     asent = myCache.get(email);
+      userpasswordenc = derivedKey.toString('hex');
 
 
-       if(!asent){
-     await sendConfirmationEmail(user.username, user.email, confirmationToken);
-    obj = { email: email };
- 
-    success = myCache.set(email , obj);
-    if(!success){
-      myCache.set(email , obj);
-    }
-       } else {
-     return res.status(400).send({
-        success: false, 
-        error: "Error sending verification mail, please try again later."
+      user = {
+        username: username,
+        fullName: fullName,
+        email: email,
+        pronoun: pronoun,
+        birthday: birthday,
+        password: userpasswordenc
+      }
+
+      trygetuseremailsame = await User.findOne({
+        email: email
+      })
+
+      trygetusernamesame = await User.findOne({
+        username: username
+      })
+
+      if (trygetusernamesame || trygetuseremailsame) {
+        return res.status(400).send({ error: 'User Email/username already exists.' })
+      }
+
+      confirmationToken = jwtu.sign(user, process.env.JWT_SECRET, { expiresIn: '3h' });
+      console.log(confirmationToken)
+
+      // bypass sending protections for development
+      // await sendConfirmationEmail(user.username, user.email, confirmationToken);
+
+      asent = myCache.get(email);
+
+
+      if (!asent) {
+        await sendConfirmationEmail(user.username, user.email, confirmationToken);
+        obj = { email: email };
+
+        success = myCache.set(email, obj);
+        if (!success) {
+          myCache.set(email, obj);
+        }
+      } else {
+        return res.status(400).send({
+          success: false,
+          error: "Error sending verification mail, please try again later."
+        });
+      }
+
+
+      return res.status(200).send({
+        success: true,
+        message: "Check your inbox for the welcome mail we just sent! (Don't forget to check your spam folder, ai misbehaves sometimes)"
       });
-    }
-      
-
-    return res.status(200).send({
-      success: true, 
-      message: "Check your inbox for the welcome mail we just sent! (Don't forget to check your spam folder, ai misbehaves sometimes)"
-    });
- })
+    })
   } catch (err) {
     next(err);
   }
@@ -322,77 +322,81 @@ module.exports.forgetPassword = async (req, res, next) => {
   let user = null;
   let confirmationToken = null;
 
-  const emailError = validateEmail(email);
-  if (emailError) return res.status(400).send({ error: emailError });
+  const emailError = await validateEmail(email);
+  console.log(emailError)
+  if (emailError) return res.status(400).send({ message: emailError });
 
-  const emailSendError = false //|| myCache.get(email)
-  if (emailSendError) return res.status(400).send({ error: "Error sending verification mail, please try again later." });
+  const emailSendError = myCache.get(email)
+  console.log(emailSendError)
+  if (emailSendError) return res.status(400).send({ message: "Error sending verification mail, please try again later." });
 
+
+  console.log('here 334')
   try {
-     user = {
+    user = {
       email: email
-     }
-
-     confirmationToken = jwtu.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' });
-     resetURL = `https://page.util.dogegram.xyz/email/passwordReset?token=${confirmationToken}`
-
-
-     asent = myCache.get(email);
-
-
-       if(!asent){
-     await sendPasswordResetEmail( user.email, resetURL);
-    obj = { email: email };
- 
-    success = myCache.set(email , obj);
-    if(!success){
-      myCache.set(email , obj);
     }
-       } else {
-     return res.status(400).send({
-        success: false, 
-        error: "Error sending password reset mail, please try again later."
+
+    confirmationToken = jwtu.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' });
+    resetURL = `https://page.util.dogegram.xyz/email/passwordReset?token=${confirmationToken}`
+
+
+    asent = myCache.get(email);
+
+
+    if (!asent) {
+      await sendPasswordResetEmail(user.email, resetURL);
+      obj = { email: email };
+
+      success = myCache.set(email, obj);
+      if (!success) {
+        myCache.set(email, obj);
+      }
+    } else {
+      return res.status(400).send({
+        success: false,
+        message: "Error sending password reset mail, please try again later."
       });
     }
-      
+
 
     return res.status(400).send({
-      success: true, 
-      error: "Password Reset email sent (Valid for 1hrs), please check your email inbox. If you didn't find the mail in the inbox, please check your email's spam folder."
+      success: true,
+      message: "Password Reset email sent (Valid for 1hr), please check your email inbox. If you didn't find the mail in the inbox, please check your email's spam folder."
     });
   } catch (err) {
     next(err);
   }
 };
 
-module.exports.forgetpassreset = async (req, res, next)=>{
+module.exports.forgetpassreset = async (req, res, next) => {
   const { usertoken, password } = req.body;
   const newPasswordError = validatePassword(password);
   if (newPasswordError)
     return res.status(400).send({ error: newPasswordError });
-     try {
+  try {
     const user = jwtu.decode(usertoken, process.env.JWT_SECRET, { expiresIn: '1h' });
     const saltRounds = 10;
-      bcrypt.genSalt(saltRounds, async (err, salt) => {
+    bcrypt.genSalt(saltRounds, async (err, salt) => {
+      if (err) return next(err);
+      bcrypt.hash(password, salt, async (err, hash) => {
         if (err) return next(err);
-        bcrypt.hash(password, salt, async (err, hash) => {
-          if (err) return next(err);
-          this.password = hash;
+        this.password = hash;
 
 
-    const passwordUpdate = await User.updateOne(
-      { email: user.email },
-      { password: hash }
-    );
-    if (!passwordUpdate.acknowledged) {
-      throw new Error('Could not update your password.');
-    } else {
-      return res.send("Password Updated!")
-    }
-        });
+        const passwordUpdate = await User.updateOne(
+          { email: user.email },
+          { password: hash }
+        );
+        if (!passwordUpdate.acknowledged) {
+          throw new Error('Could not update your password.');
+        } else {
+          return res.send("Password Updated!")
+        }
       });
-    
-  } catch(err) {
+    });
+
+  } catch (err) {
     throw new Error(err);
   }
 }

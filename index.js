@@ -3,13 +3,11 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
-const mongoose = require('mongoose');
 const compression = require('compression');
 const path = require('path');
 const socketio = require('socket.io');
-const jwt = require('jwt-simple');
 const connectToDb = require("./utils/db");
-const multer = require('multer');
+const tf = require('@tensorflow/tfjs-node');
 
 const Sentry = require('@sentry/node');
 const Tracing = require("@sentry/tracing");
@@ -20,7 +18,7 @@ const app = express();
 const PORT = process.env.PORT || process.env.OPEN_PORT || 5000;
 
 Sentry.init({
-  dsn: "https://9ae2832420774e2fa3975bc51b02144e@o679108.ingest.sentry.io/5769445",
+  dsn: process.env.SENTRY_DSN,
   integrations: [
     new Sentry.Integrations.Http({ tracing: true }),
     new Tracing.Integrations.Express({ app }),
@@ -40,8 +38,7 @@ if (process.env.NODE_ENV != 'production') {
 }
 
 
-
-app.use(  Sentry.Handlers.requestHandler({
+app.use(Sentry.Handlers.requestHandler({
   serverName: false,
   ip: false
 }));
@@ -57,8 +54,8 @@ var corsOptions = {
 }
 app.use(cors(corsOptions));
 app.use('/api/payment/webhook', bodyParser.raw({type: "*/*"}))
-app.use(bodyParser.urlencoded({extended: true}));
-app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({  limit: "6mb", extended: true}));
+app.use(bodyParser.json({ limit: "6mb"}));
 app.set('trust proxy', 1);
 /*app.use((req, res, next) => {
 =======
@@ -87,13 +84,13 @@ app.use(
 app.use(function onError(err, req, res, next) {
   // The error id is attached to `res.sentry` to be returned
   // and optionally displayed to the user for support.
-  if(err instanceof multer.MulterError){
-    return res.status(400).send({error: err.message})
+if(err.type === "entity.too.large"){
+    return res.status(413).send({error: "Payload too large..."})
   }
   res.statusCode = 500;
+  console.log(err)
   res.end(`An unexpected error ocurred, Request Trace ID: ${res.sentry}`);
 });
-
 
 const expressServer = app.listen(PORT, () => {
   console.log(`Backend listening on port ${PORT}`);
@@ -122,5 +119,5 @@ io.use((socket, next) => {
   }
 }).on('connection', (socket) => {
   socket.join(socket.user.id);
- // console.log(`socket connected id: ${socket.id}, username: ${socket.user.id}`);
+  console.log(`socket connected id: ${socket.id}, username: ${socket.user.id}`);
 });

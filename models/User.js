@@ -41,6 +41,11 @@ const UserSchema = new Schema({
   password: {
     type: String,
     minlength: 8,
+    required: true,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
   },
   avatar: String,
   bio: {
@@ -91,10 +96,10 @@ const UserSchema = new Schema({
   twofactor:{
     type: Boolean
   },
-  adwallet:{
+  Fundwallet:{
     type: Number
   },
-  baseAdWalletCurrency:{
+  baseFundWalletCurrency:{
     type: String
   },
   whisperEmail:{

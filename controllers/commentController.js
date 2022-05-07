@@ -4,22 +4,14 @@ const CommentReply = require('../models/CommentReply');
 const CommentReplyVote = require('../models/CommentReplyVote');
 const Post = require('../models/Post');
 const ObjectId = require('mongoose').Types.ObjectId;
-const toxicity = require('@tensorflow-models/toxicity')
+const { checkText } = require('./helpers/tensorflow')
 const {
   retrieveComments,
   sendCommentNotification,
   sendMentionNotification,
 } = require('../utils/controllerUtils');
 
-var textmodel = null;
 
-const load_model = async () => {
-  console.time("models.comment.load")
-  textmodel = await toxicity.load(0.9,['toxicity'])
-  console.timeEnd("models.comment.load")
-}
-
-load_model();
 
 
 
@@ -48,8 +40,8 @@ module.exports.createComment = async (req, res, next) => {
         .send({ error: 'Could not find a post with that post id.' });
     }
 
-    const toxic = await textmodel.classify(message)
-    if(toxic[0].results[0].match){
+    const toxic = await checkText(message)
+    if(toxic){
       return res.status(401).send({success:false, message:"The comment has been determined Toxic."});
     }
 

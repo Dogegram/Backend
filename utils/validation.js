@@ -38,6 +38,9 @@ if(error === 0 && errorc === 0){
 
   try{
     const mxrec = await resolver.resolve(email.split('@')[1], 'MX')
+    if(mxrec.length === 0){
+      return 'Current email address is invalid or will bounce.'
+    }
    } catch(err){
     error=1
   }

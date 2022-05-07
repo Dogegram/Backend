@@ -1,4 +1,4 @@
-const stripe = require('stripe')(process.env.STRIPE_SK_KEY_LIVE)
+const stripe = require('stripe')(process.env.NODE_ENV != 'production' ? process.env.STRIPE_SK_KEY_TEST : process.env.STRIPE_SK_KEY_LIVE)
 const User = require('../models/User');
 const ObjectId = require('mongoose').Types.ObjectId;
 
@@ -125,7 +125,7 @@ module.exports.createTipsSession = async (req, res, next) => {
 module.exports.getWebhook = async (req, res, next) => {
   const sig = req.headers['stripe-signature'];
   const body = req.body;
-  const endpointSecret = "whsec_zdCM9Fy8TCZO1KcOMCDpZzpJwyGcTetI" || process.env.STRIPE_WEBHOOK_SECRET;
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
   let event = null;
 
