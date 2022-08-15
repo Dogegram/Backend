@@ -292,6 +292,10 @@ module.exports.sendCommentNotification = async (
           username: sender.username,
           avatar: sender.avatar,
         },
+        receiver: {
+          _id: receiver,
+          fcmTokens: User.findOne(receiver).fcm_device_ids
+          }
       });
     }
   } catch (err) {

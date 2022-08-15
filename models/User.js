@@ -27,10 +27,6 @@ const UserSchema = new Schema({
     type: String,
     required: true,
   },
-  pronoun: {
-    type: String,
-    required: true,
-  },
   username: {
     type: String,
     required: true,
@@ -52,9 +48,6 @@ const UserSchema = new Schema({
     type: String,
   },
   rawBio: {
-    type: String,
-  },
-  ssotoken: {
     type: String,
   },
   website: {
@@ -80,9 +73,6 @@ const UserSchema = new Schema({
     type: Boolean
   },
   banReason:{
-    type: String
-  },
-  pronoun:{
     type: String
   },
   secret2fa:{
@@ -120,6 +110,11 @@ const UserSchema = new Schema({
   payments_enabled:{
     type: Boolean,
   },
+  fcm_tokens: [
+    {
+      type: String,
+    }
+  ]
 });
 
 /*

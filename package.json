@@ -1,6 +1,6 @@
 {
   "name": "dogegram-backend",
-  "version": "8.2.2",
+  "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "engines": {
@@ -26,8 +26,8 @@
   "dependencies": {
     "@aws-sdk/client-ses": "^3.14.0",
     "@sendgrid/mail": "^7.4.4",
-    "@sentry/node": "^6.15.0",
-    "@sentry/tracing": "^6.15.0",
+    "@sentry/node": "^7.10.0",
+    "@sentry/tracing": "^7.10.0",
     "@tensorflow-models/mobilenet": "^2.1.0",
     "@tensorflow-models/toxicity": "^1.2.2",
     "@tensorflow/tfjs-node": "^3.9.0",
@@ -46,6 +46,7 @@
     "exifremove": "^1.0.1",
     "express": "^4.17.1",
     "express-rate-limit": "^5.1.1",
+    "firebase-admin": "^11.0.0",
     "formidable": "^1.2.2",
     "handlebars": "^4.7.7",
     "helmet": "^3.21.2",

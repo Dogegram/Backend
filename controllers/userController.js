@@ -28,7 +28,7 @@ const DOMPurify = createDOMPurify(window);
 const { scanNSFW, checkText } = require('./helpers/tensorflow')
 const { compress } = require('./helpers/compress')
 const { upload } = require('./helpers/upload')
-
+const { addUserFollowerTopic, removeUserFollowerTopic } = require('../handlers/fcmHandler');
 const { customAlphabet } = require('nanoid');
 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const nanoid = customAlphabet(alphabet, 6);
@@ -40,6 +40,14 @@ var encodify = require('encodify');
 const algorithm = 'aes-256-ctr';
 const secretKey = process.env.ENC_KEY;
 
+var admin = require("firebase-admin");
+const serviceAccount = require('../dogegram-firebase.json');
+//initialize app only if none exist already
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+}
 
 const s3Bucket = process.env.S3_BUCKET;
 
@@ -382,6 +390,12 @@ module.exports.followUser = async (req, res, next) => {
   const user = res.locals.user;
 
   try {
+    // check if the user has reached the max follow limit of 1969 
+    const userFollows = await User.findOne({ _id: user._id }, { follows: 1 });
+    if (userFollows.follows.length >= 1969) {
+      return res.status(400).send({ error: 'You have reached the max follow limit of 1969, to follow any more, unfollow the least liked user in your follow list' });
+    }
+
     const userToFollow = await User.findById(userId);
     if (!userToFollow) {
       return res
@@ -408,13 +422,14 @@ module.exports.followUser = async (req, res, next) => {
       }
       // Nothing was modified in the above query meaning that the user is already following
       // Unfollow instead
+      removeUserFollowerTopic(userFollows.fcm_tokens, user._id);
       const followerUnfollowUpdate = await Followers.updateOne(
         {
           user: userId,
         },
         { $pull: { followers: { user: user._id } } }
       );
-
+      
       const followingUnfollowUpdate = await Following.updateOne(
         { user: user._id },
         { $pull: { following: { user: userId } } }
@@ -426,6 +441,7 @@ module.exports.followUser = async (req, res, next) => {
       }
       return res.send({ success: true, operation: 'unfollow' });
     }
+
 
     const notification = new Notification({
       notificationType: 'follow',
@@ -439,6 +455,7 @@ module.exports.followUser = async (req, res, next) => {
       user: userId,
       'following.user': user._id,
     });
+    addUserFollowerTopic(userFollows.fcm_tokens, user._id)
 
     await notification.save();
     socketHandler.sendNotification(req, {
@@ -769,12 +786,11 @@ module.exports.confirmUser = async (req, res, next) => {
     username = dtoken.username;
     fullName = dtoken.fullName;
     email = dtoken.email;
-    pronoun = dtoken.pronoun;
     birthday = new Date(dtoken.birthday);
     password = dtoken.password;
 
 
-    const userd = new User({ username, fullName, pronoun, birthday, email, password });
+    const userd = new User({ username, fullName, birthday, email, password });
 
     await userd.save();
 
@@ -814,7 +830,7 @@ module.exports.changeAvatar = async (req, res, next) => {
         var compressedImage = await compress(imagebuf, 80)
 
         var tag = crypto.createHash('sha1').update(compressedImage).digest("hex");
-        const s3error = (err) => {throw new Error('err with s3 upload', err)}
+        const s3error = (err) => { throw new Error('err with s3 upload', err) }
         const params = {
           Bucket: s3Bucket,
           Key: tag,
@@ -1069,6 +1085,34 @@ module.exports.retrieveSuggestedUsers = async (req, res, next) => {
       },
     ]);
     res.send(users);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports.addFCMID = async (req, res, next) => {
+  const user = res.locals.user;
+  const { token } = req.body;
+  console.log(token)
+  try {
+    const fcm_check = await admin.messaging().send({
+      token: token
+    }, true)
+    console.log(fcm_check)
+    const internalTopic = 'user_' + user._id; // this is for internal refrence of the user
+    admin.messaging().subscribeToTopic(token, internalTopic).catch(err => {
+      next(err)
+    })
+
+    const fcmUpdate = await User.updateOne(
+      { _id: user._id },
+      { $addToSet: { fcm_tokens: token } }
+    );
+    console.log(fcmUpdate)
+    if (!fcmUpdate.acknowledged) {
+      next(err);
+    }
+    return res.status(204).send();
   } catch (err) {
     next(err);
   }

@@ -65,14 +65,6 @@ module.exports.validateFullName = (fullName) => {
   return false;
 };
 
-module.exports.validatePronoun = (noun) => {
-  if (noun.length > 10 && noun.length < 3){
-    return false;
-} else {
-  return 'The pronoun should be under 10 Charecters and over 3 Charecters';
-} 
-};
-
 module.exports.validateUsername = (username) => {
     if (typeof username !== 'string') {
     return 'idiot, dont even try (err: bad request)';
@@ -139,13 +131,3 @@ if(getAge(dob) >= 13 && getAge(dob) <= 120) {
 
 
 };
-
-
-module.exports.validatePronoun = (pronoun) => {
-  if (pronoun.length < 3 || pronoun.length > 10){
-    return 'The pronoun should be under 10 Charecters and over 3 Charecters';
-  } else {
-    return false
-  }
-};
-

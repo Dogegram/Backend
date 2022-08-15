@@ -161,7 +161,8 @@ module.exports.createPost = async (req, res, next) => {
           postVotes: [],
         };
 
-       //  socketHandler.sendPost(req, postObject, user._id);
+        socketHandler.sendPost(req, postObject, user._id);
+        
     /*    followers.forEach((follower) => {
           socketHandler.sendPost(
             req,
@@ -381,10 +382,10 @@ module.exports.retrievePostFeed = async (req, res, next) => {
       'author.website',
       'author.bio',
       'author.rawBio',
-      'author.pronoun',
       'author.countryblocks',
       'author.birthday',
-      'author.admin'
+      'author.admin',
+      'author.banned',
     ];
 
 

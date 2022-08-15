@@ -22,7 +22,8 @@ const {
   confirm2FA,
   turnOn2FA,
   turnOff2FA,
-  sendWhisper
+  sendWhisper,
+  addFCMID
 } = require('../controllers/userController');
 const { requireAuth, optionalAuth } = require('../controllers/authController');
 
@@ -89,6 +90,8 @@ userRouter.post(
   changeAvatar
 );
 userRouter.put('/', requireAuth, avatarLimiter, updateProfile);
+userRouter.put('/fcm/add', requireAuth, addFCMID);
+
 
 userRouter.delete('/avatar', requireAuth, removeAvatar);
 

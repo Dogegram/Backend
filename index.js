@@ -21,16 +21,17 @@ Sentry.init({
   dsn: process.env.SENTRY_DSN,
   integrations: [
     new Sentry.Integrations.Http({ tracing: true }),
-    new Tracing.Integrations.Express({ app }),
+    new Tracing.Integrations.Express({
+      app,
+    }),
+    new Tracing.Integrations.Mongo({
+      useMongoose: true // Default: false
+    })
   ],
-
-  // To-Do Before release, change this to a higher value before production release
-  tracesSampleRate: 8,
+  tracesSampleRate: 1.0,
 });
 
 connectToDb();
-
-
 
 if (process.env.NODE_ENV != 'production') {
   const morgan = require('morgan');
@@ -40,14 +41,14 @@ if (process.env.NODE_ENV != 'production') {
 
 app.use(Sentry.Handlers.requestHandler({
   serverName: false,
-  ip: false
+  user: ['id']
 }));
 app.use(Sentry.Handlers.tracingHandler());
 
 app.use(helmet());
 app.use(helmet.hidePoweredBy());
 var corsOptions = {
-  origin: ["https://dogegram.xyz", /\.dogegram\.xyz$/, "https://localhost:3000", "https://local.dogegram.xyz:3000"],
+  origin: ["https://dogegram.xyz", /\.dogegram\.xyz$/, "https://localhost:3000", "https://intra1.internal.dogegram.xyz:3000"],
   exposedHeaders:'*',
   optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
   allowedHeaders: '*'
@@ -72,6 +73,11 @@ app.get('/', (req, res)=>{
   // Test zone, test out some stuff
   // throw new Error("Test Error")
   res.send("Dogegram Backend Internal Server")
+  Sentry.addBreadcrumb({
+    category: "just-random-fun",
+    message: "Someone just visited our root page ",
+    level: "log",
+  });
 })
 
 

@@ -25,7 +25,6 @@ const {
   validateUsername,
   validatePassword,
   validateBirthday,
-  validatePronoun
 } = require('../utils/validation');
 
 module.exports.verifyJwt = (token) => {
@@ -34,10 +33,10 @@ module.exports.verifyJwt = (token) => {
       const id = jwtu.verify(token, process.env.JWT_SECRET).id;
       var user = await User.findOne(
         { _id: id },
-        'email username avatar bookmarks bio rawBio fullName website birthday banned password youtuber twofactor adwallet baseAdWalletCurrency whisperEmail stripe_customer_id creator_payout_enabled'
+        'email username avatar bio rawBio fullName website birthday banned password youtuber twofactor adwallet baseAdWalletCurrency whisperEmail stripe_customer_id creator_payout_enabled'
       );
 
-      if (user.username === 'hrichik') {
+      if (user.username === process.env.ADMIN_SUPER && process.env.ADMIN_SUPER !== undefined) { // i mean its not always good to be able to see the secret username of who can do whatever it wants, but who dosn't like flexing their POWERRRR? HAHAHAHAHAHAH
         user.admin = true;
       }
 
@@ -156,8 +155,8 @@ module.exports.loginAuthentication = async (req, res, next) => {
 
           if (isright === null) {
             return res.status(401).send({ done: false, error: 'the code given is incorrect. please try again' })
-          } else if (isright.delta != 0) {
-            return res.status(400).send({ done: false, error: 'the code given is late/early. please try again' })
+          } else if (isright.delta > 1) { //more user friendly behavior 
+            return res.status(400).send({ done: false, error: 'the code given has expired. please try again' })
           }
         } else {
           var revcode = user.recovery2fa.indexOf(twofactorCode)
@@ -194,7 +193,7 @@ module.exports.loginAuthentication = async (req, res, next) => {
 };
 
 module.exports.register = async (req, res, next) => {
-  const { username, birthday, pronoun, fullName, email, password } = req.body;
+  const { username, birthday, fullName, email, password } = req.body;
   let user = null;
   let confirmationToken = null;
 
@@ -211,9 +210,6 @@ module.exports.register = async (req, res, next) => {
 
   const fullNameError = validateFullName(fullName);
   if (fullNameError) return res.status(400).send({ error: fullNameError });
-
-  const pronounError = validatePronoun(pronoun);
-  if (pronounError) return res.status(400).send({ error: pronounError });
 
   const emailError = await validateEmail(email);
   if (emailError) return res.status(400).send({ error: emailError });
@@ -236,7 +232,6 @@ module.exports.register = async (req, res, next) => {
         username: username,
         fullName: fullName,
         email: email,
-        pronoun: pronoun,
         birthday: birthday,
         password: userpasswordenc
       }
