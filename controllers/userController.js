@@ -41,7 +41,7 @@ const algorithm = 'aes-256-ctr';
 const secretKey = process.env.ENC_KEY;
 
 var admin = require("firebase-admin");
-const serviceAccount = require('../dogegram-firebase.json');
+const serviceAccount = JSON.parse(process.env.FCM_CRED);
 //initialize app only if none exist already
 if (!admin.apps.length) {
   admin.initializeApp({
